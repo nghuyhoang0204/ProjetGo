@@ -31,6 +31,10 @@ func Tokenize(input string) []Token {
 	for _, r := range input {
 		currentColumn++
 		if unicode.IsSpace(r) {
+			if currentToken != "" {
+				tokens = append(tokens, Token{Type: IDENTIFIER, Value: currentToken, Line: currentLine, Column: currentColumn})
+				currentToken = ""
+			}
 			continue
 		}
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
@@ -40,8 +44,13 @@ func Tokenize(input string) []Token {
 				tokens = append(tokens, Token{Type: IDENTIFIER, Value: currentToken, Line: currentLine, Column: currentColumn})
 				currentToken = ""
 			}
+			// Handle special characters like ':' and ';'
 			tokens = append(tokens, Token{Type: OPERATOR, Value: string(r), Line: currentLine, Column: currentColumn})
 		}
+	}
+
+	if currentToken != "" {
+		tokens = append(tokens, Token{Type: IDENTIFIER, Value: currentToken, Line: currentLine, Column: currentColumn})
 	}
 
 	return tokens

@@ -15,12 +15,11 @@ func main() {
 	tokens := lexer.Tokenize(input)
 
 	// Step 2: Parse the tokens and build the AST
-	ast := parser.Parse(tokens)
+	abstract := parser.Parse(tokens)
 
 	// Step 3: Generate JavaScript code from the AST
-	jsCode := codegen.GenerateCode(ast)
+	jsCode := codegen.GenerateCode(abstract)
 
-	// Output the generated JavaScript code
 	fmt.Println("Generated JavaScript Code:")
 	fmt.Println(jsCode)
 }

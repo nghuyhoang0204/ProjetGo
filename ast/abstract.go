@@ -1,4 +1,4 @@
-package ast
+package abstract
 
 // Node represents an AST node interface.
 type Node interface {
