@@ -1,23 +1,72 @@
 package parser
 
 import (
-	"ProjetGo/ast"
 	"ProjetGo/lexer"
+	"ProjetGo/ast"
 )
 
-// Parse converts a list of tokens into an AST.
-func Parse(tokens []lexer.Token) ast.AST {
-	var astNodes []ast.Node
+type Parser struct {
+	l         *lexer.Lexer
+	curToken  lexer.Token
+	peekToken lexer.Token
+}
 
-	// A simple parser that only handles variable declarations for now
-	for i := 0; i < len(tokens); i++ {
-		if tokens[i].Value == "let" {
-			varName := tokens[i+1].Value
-			varValue := tokens[i+3].Value
-			astNodes = append(astNodes, &ast.VariableDeclaration{Name: varName, Value: varValue})
-			i += 4 // Skip past the declaration
+func New(l *lexer.Lexer) *Parser {
+	p := &Parser{l: l}
+	// Charge deux tokens pour le lookahead
+	p.nextToken()
+	p.nextToken()
+	return p
+}
+
+func (p *Parser) nextToken() {
+	p.curToken = p.peekToken
+	p.peekToken = p.l.NextToken()
+}
+func (p *Parser) ParseStatement() ast.Statement {
+	if p.curToken.Literal == "let" || p.curToken.Literal == "const" {
+		return p.parseVariableDeclaration()
+	}
+	// à compléter : function, return, etc.
+	return nil
+}
+
+func (p *Parser) parseVariableDeclaration() *ast.VariableDeclaration {
+	vd := &ast.VariableDeclaration{}
+	vd.IsConst = p.curToken.Literal == "const"
+
+	p.nextToken() // identifiant
+	vd.Name = p.curToken.Literal
+
+	p.nextToken() // :
+	if p.curToken.Type == lexer.COLON {
+		p.nextToken() // type (ex: "string")
+		vd.Type = p.curToken.Literal
+		p.nextToken()
+	}
+
+	if p.curToken.Type == lexer.OPERATOR && p.curToken.Literal == "=" {
+		p.nextToken()
+		switch p.curToken.Type {
+		case lexer.STRING:
+			vd.Value = &ast.StringLiteral{Value: p.curToken.Literal}
+		case lexer.NUMBER:
+			vd.Value = &ast.NumberLiteral{Value: p.curToken.Literal}
 		}
 	}
 
-	return ast.AST{Nodes: astNodes}
+	return vd
+}
+func (p *Parser) ParseProgram() []ast.Statement {
+	var statements []ast.Statement
+
+	for p.curToken.Type != lexer.EOF {
+		stmt := p.ParseStatement()
+		if stmt != nil {
+			statements = append(statements, stmt)
+		}
+		p.nextToken()
+	}
+
+	return statements
 }

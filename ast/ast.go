@@ -1,21 +1,40 @@
 package ast
 
-// Node represents an AST node interface.
 type Node interface {
-	Type() string
+	TokenLiteral() string
 }
 
-// VariableDeclaration represents a variable declaration in TypeScript.
+type Statement interface {
+	Node
+	statementNode()
+}
+
+type Expression interface {
+	Node
+	expressionNode()
+}
+
+// VariableDeclaration est une instruction de type const/let/var
 type VariableDeclaration struct {
-	Name  string
+	IsConst bool
+	Name    string
+	Type    string
+	Value   Expression
+}
+
+func (vd *VariableDeclaration) statementNode()      {}
+func (vd *VariableDeclaration) TokenLiteral() string { return "var" }
+
+type StringLiteral struct {
 	Value string
 }
 
-func (v *VariableDeclaration) Type() string {
-	return "VariableDeclaration"
+func (s *StringLiteral) expressionNode() {}
+func (s *StringLiteral) TokenLiteral() string { return s.Value }
+
+type NumberLiteral struct {
+	Value string
 }
 
-// AST holds all the nodes of the parsed TypeScript code.
-type AST struct {
-	Nodes []Node
-}
+func (n *NumberLiteral) expressionNode() {}
+func (n *NumberLiteral) TokenLiteral() string { return n.Value }
