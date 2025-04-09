@@ -1,4 +1,4 @@
-package ast
+package abstract
 
 type Node interface {
 	TokenLiteral() string
