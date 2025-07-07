@@ -17,6 +17,8 @@ const (
     KEYWORD   = "KEYWORD"   // let, const, function, return
     NUMBER    = "NUMBER"    // 123, 3.14
     STRING    = "STRING"    // "hello"
+    TEMPLATE  = "TEMPLATE"  // `hello ${name}`
+    COMMENT   = "COMMENT"   // // commentaire
     OPERATOR  = "OPERATOR"  // =, +, -, *, /
     COLON     = ":"
     SEMICOLON = ";"
@@ -25,14 +27,48 @@ const (
     RPAREN    = ")"
     LBRACE    = "{"
     RBRACE    = "}"
+    LBRACKET  = "["
+    RBRACKET  = "]"
+    DOT       = "."
+    PIPE      = "|"
+    ARROW     = "=>"
+    QUESTION  = "?"
+    EXCLAMATION = "!"
 )
 
 var keywords = map[string]TokenType{
-    "let":      KEYWORD,
-    "const":    KEYWORD,
-    "var":      KEYWORD,
-    "function": KEYWORD,
-    "return":   KEYWORD,
+    "let":       KEYWORD,
+    "const":     KEYWORD,
+    "var":       KEYWORD,
+    "function":  KEYWORD,
+    "return":    KEYWORD,
+    "true":      KEYWORD,
+    "false":     KEYWORD,
+    "type":      KEYWORD,
+    "interface": KEYWORD,
+    "class":     KEYWORD,
+    "async":     KEYWORD,
+    "await":     KEYWORD,
+    "new":       KEYWORD,
+    "this":      KEYWORD,
+    "private":   KEYWORD,
+    "public":    KEYWORD,
+    "static":    KEYWORD,
+    "if":        KEYWORD,
+    "else":      KEYWORD,
+    "for":       KEYWORD,
+    "while":     KEYWORD,
+    "do":        KEYWORD,
+    "break":     KEYWORD,
+    "continue":  KEYWORD,
+    "try":       KEYWORD,
+    "catch":     KEYWORD,
+    "throw":     KEYWORD,
+    "switch":    KEYWORD,
+    "case":      KEYWORD,
+    "default":   KEYWORD,
+    "console":   KEYWORD,
+    "void":      KEYWORD,
 }
 
 type Lexer struct {
@@ -66,6 +102,14 @@ func (l *Lexer) readChar() {
     l.readPosition++
 }
 
+func (l *Lexer) peekChar() byte {
+    if l.readPosition >= len(l.input) {
+        return 0
+    } else {
+        return l.input[l.readPosition]
+    }
+}
+
 func (l *Lexer) NextToken() Token {
     l.skipWhitespace()
 
@@ -73,9 +117,86 @@ func (l *Lexer) NextToken() Token {
 
     switch l.ch {
     case '=':
-        tok = newToken(OPERATOR, "=", l)
+        if l.peekChar() == '=' {
+            ch := l.ch
+            l.readChar()
+            tok = Token{Type: OPERATOR, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column}
+        } else if l.peekChar() == '>' {
+            ch := l.ch
+            l.readChar()
+            tok = Token{Type: ARROW, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column}
+        } else {
+            tok = newToken(OPERATOR, "=", l)
+        }
     case '+':
-        tok = newToken(OPERATOR, "+", l)
+        if l.peekChar() == '+' {
+            ch := l.ch
+            l.readChar()
+            tok = Token{Type: OPERATOR, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column}
+        } else {
+            tok = newToken(OPERATOR, "+", l)
+        }
+    case '-':
+        if l.peekChar() == '-' {
+            ch := l.ch
+            l.readChar()
+            tok = Token{Type: OPERATOR, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column}
+        } else {
+            tok = newToken(OPERATOR, "-", l)
+        }
+    case '*':
+        tok = newToken(OPERATOR, "*", l)
+    case '/':
+        if l.peekChar() == '/' {
+            tok.Type = COMMENT
+            tok.Literal = l.readComment()
+        } else {
+            tok = newToken(OPERATOR, "/", l)
+        }
+    case '<':
+        if l.peekChar() == '=' {
+            ch := l.ch
+            l.readChar()
+            tok = Token{Type: OPERATOR, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column}
+        } else {
+            tok = newToken(OPERATOR, "<", l)
+        }
+    case '>':
+        if l.peekChar() == '=' {
+            ch := l.ch
+            l.readChar()
+            tok = Token{Type: OPERATOR, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column}
+        } else {
+            tok = newToken(OPERATOR, ">", l)
+        }
+    case '!':
+        if l.peekChar() == '=' {
+            ch := l.ch
+            l.readChar()
+            tok = Token{Type: OPERATOR, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column}
+        } else {
+            tok = newToken(EXCLAMATION, "!", l)
+        }
+    case '&':
+        if l.peekChar() == '&' {
+            ch := l.ch
+            l.readChar()
+            tok = Token{Type: OPERATOR, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column}
+        } else {
+            tok = newToken(OPERATOR, "&", l)
+        }
+    case '|':
+        if l.peekChar() == '|' {
+            ch := l.ch
+            l.readChar()
+            tok = Token{Type: OPERATOR, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column}
+        } else {
+            tok = newToken(PIPE, "|", l)
+        }
+    case '?':
+        tok = newToken(QUESTION, "?", l)
+    case '.':
+        tok = newToken(DOT, ".", l)
     case ';':
         tok = newToken(SEMICOLON, ";", l)
     case ':':
@@ -88,9 +209,21 @@ func (l *Lexer) NextToken() Token {
         tok = newToken(LBRACE, "{", l)
     case '}':
         tok = newToken(RBRACE, "}", l)
+    case '[':
+        tok = newToken(LBRACKET, "[", l)
+    case ']':
+        tok = newToken(RBRACKET, "]", l)
+    case ',':
+        tok = newToken(COMMA, ",", l)
     case '"':
         tok.Type = STRING
         tok.Literal = l.readString()
+    case '\'':
+        tok.Type = STRING
+        tok.Literal = l.readSingleQuoteString()
+    case '`':
+        tok.Type = TEMPLATE
+        tok.Literal = l.readTemplateLiteral()
     case 0:
         tok.Type = EOF
         tok.Literal = ""
@@ -152,6 +285,36 @@ func (l *Lexer) readString() string {
     str := l.input[start:l.position]
     l.readChar() // skip closing "
     return str
+}
+
+func (l *Lexer) readSingleQuoteString() string {
+    l.readChar() // skip '
+    start := l.position
+    for l.ch != '\'' && l.ch != 0 {
+        l.readChar()
+    }
+    str := l.input[start:l.position]
+    l.readChar() // skip closing '
+    return str
+}
+
+func (l *Lexer) readTemplateLiteral() string {
+    l.readChar() // skip `
+    start := l.position
+    for l.ch != '`' && l.ch != 0 {
+        l.readChar()
+    }
+    str := l.input[start:l.position]
+    l.readChar() // skip closing `
+    return str
+}
+
+func (l *Lexer) readComment() string {
+    start := l.position
+    for l.ch != '\n' && l.ch != 0 {
+        l.readChar()
+    }
+    return l.input[start:l.position]
 }
 
 func isLetter(ch byte) bool {
