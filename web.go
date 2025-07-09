@@ -15,16 +15,8 @@ import (
 type TranspilerResult struct {
 	SourceCode   string
 	JavaScript   string
-	Java         string
-	Python       string
-	CSharp       string
-	Go           string
-	Rust         string
-	Swift        string
-	PHP          string
 	ErrorMessage string
 	ParseTime    string
-	TargetLang   string
 }
 
 // Enhanced HTML template with modern features
@@ -336,7 +328,7 @@ const htmlTemplate = `
     <div class="container">
         <div class="header">
             <h1>🚀 Transpilateur Multi-Langages v2.0</h1>
-            <p>Convertissez votre code TypeScript/JavaScript vers 8 langages différents</p>
+            <p>Convertissez votre code TypeScript vers JavaScript</p>
         </div>
         
         <div class="controls">
@@ -350,14 +342,14 @@ const htmlTemplate = `
         <div class="main-content">
             <div class="input-section">
                 <div class="section-header">
-                    <div class="section-title">📝 Code Source (TypeScript/JavaScript)</div>
+                    <div class="section-title">📝 Code Source (TypeScript)</div>
                     <div class="file-controls">
                         <input type="file" id="fileInput" accept=".ts,.js,.txt" style="display: none;" onchange="loadFile(event)">
                         <button class="btn" onclick="document.getElementById('fileInput').click()">📁 Ouvrir</button>
                         <button class="btn" onclick="downloadCode()">💾 Sauvegarder</button>
                     </div>
                 </div>
-                <textarea id="sourceCode" placeholder="Entrez votre code TypeScript/JavaScript ici...
+                <textarea id="sourceCode" placeholder="Entrez votre code TypeScript ici...
 Exemple :
 const message: string = 'Hello World';
 let count: number = 42;
@@ -375,15 +367,7 @@ function greet(name: string): string {
                 </div>
                 
                 <div class="language-selector">
-                    <button class="lang-btn active" data-lang="all">🌍 Tous</button>
-                    <button class="lang-btn" data-lang="javascript">🟨 JS</button>
-                    <button class="lang-btn" data-lang="java">☕ Java</button>
-                    <button class="lang-btn" data-lang="python">🐍 Python</button>
-                    <button class="lang-btn" data-lang="csharp">🔵 C#</button>
-                    <button class="lang-btn" data-lang="go">🐹 Go</button>
-                    <button class="lang-btn" data-lang="rust">🦀 Rust</button>
-                    <button class="lang-btn" data-lang="swift">🍎 Swift</button>
-                    <button class="lang-btn" data-lang="php">🐘 PHP</button>
+                    <button class="lang-btn active" data-lang="javascript">🟨 JavaScript</button>
                 </div>
                 
                 <div class="loading" id="loading">
@@ -624,18 +608,11 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 			result.ParseTime = elapsed.String()
 
 			// Check for parsing errors
-			if len(program) == 0 {
+			if len(program.Statements) == 0 {
 				result.ErrorMessage = "Aucun code valide détecté. Vérifiez la syntaxe de votre code source."
 			} else {
-				// Génération dans tous les langages
-				result.JavaScript = generator.Generate(program, generator.JavaScript)
-				result.Java = generator.Generate(program, generator.Java)
-				result.Python = generator.Generate(program, generator.Python)
-				result.CSharp = generator.Generate(program, generator.CSharp)
-				result.Go = generator.Generate(program, generator.Go)
-				result.Rust = generator.Generate(program, generator.Rust)
-				result.Swift = generator.Generate(program, generator.Swift)
-				result.PHP = generator.Generate(program, generator.PHP)
+				// Génération JavaScript uniquement
+				result.JavaScript = generator.Generate(program.Statements)
 			}
 		}
 	}
@@ -669,21 +646,15 @@ func handleTranspile(w http.ResponseWriter, r *http.Request) {
 	elapsed := time.Since(start)
 
 	response := map[string]interface{}{
-		"success":   len(program) > 0,
+		"success":   len(program.Statements) > 0,
 		"parseTime": elapsed.String(),
 	}
 
-	if len(program) == 0 {
+	if len(program.Statements) == 0 {
 		response["error"] = "Aucun code valide détecté. Vérifiez la syntaxe."
 	} else {
-		response["javascript"] = generator.Generate(program, generator.JavaScript)
-		response["java"] = generator.Generate(program, generator.Java)
-		response["python"] = generator.Generate(program, generator.Python)
-		response["csharp"] = generator.Generate(program, generator.CSharp)
-		response["go"] = generator.Generate(program, generator.Go)
-		response["rust"] = generator.Generate(program, generator.Rust)
-		response["swift"] = generator.Generate(program, generator.Swift)
-		response["php"] = generator.Generate(program, generator.PHP)
+		// Utiliser la nouvelle fonction de transpilation directe
+		response["javascript"] = generator.TranspileTS(request.Code)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -399,3 +399,127 @@ func (tl *TemplateLiteral) String() string {
 	out += "`"
 	return out
 }
+
+// TypeAlias représente une déclaration de type: type Name = Type
+type TypeAlias struct {
+	Token string // "type"
+	Name  string
+	Type  string
+}
+
+func (ta *TypeAlias) statementNode()  {}
+func (ta *TypeAlias) TokenLiteral() string { return ta.Token }
+func (ta *TypeAlias) String() string {
+	var out string
+	out += ta.TokenLiteral() + " " + ta.Name + " = " + ta.Type + ";"
+	return out
+}
+
+// Interface représente une déclaration d'interface: interface Name { ... }
+type Interface struct {
+	Token      string // "interface"
+	Name       string
+	Properties []InterfaceProperty
+}
+
+type InterfaceProperty struct {
+	Name       string
+	Type       string
+	IsOptional bool
+}
+
+func (i *Interface) statementNode()  {}
+func (i *Interface) TokenLiteral() string { return i.Token }
+func (i *Interface) String() string {
+	var out string
+	out += i.TokenLiteral() + " " + i.Name + " {\n"
+	for _, prop := range i.Properties {
+		out += "  " + prop.Name
+		if prop.IsOptional {
+			out += "?"
+		}
+		out += ": " + prop.Type + ";\n"
+	}
+	out += "}"
+	return out
+}
+
+// ClassDeclaration représente une classe: class Name { ... }
+type ClassDeclaration struct {
+	Token      string // "class"
+	Name       string
+	SuperClass string // Optionnel, pour l'héritage
+	Properties []ClassProperty
+	Methods    []ClassMethod
+}
+
+type ClassProperty struct {
+	Name       string
+	Type       string
+	IsPrivate  bool
+	IsReadonly bool
+	Value      Expression // Valeur initiale (optionnelle)
+}
+
+type ClassMethod struct {
+	Name       string
+	Parameters []Parameter
+	ReturnType string
+	Body       *BlockStatement
+	IsStatic   bool
+	IsPrivate  bool
+}
+
+func (cd *ClassDeclaration) statementNode()  {}
+func (cd *ClassDeclaration) TokenLiteral() string { return cd.Token }
+func (cd *ClassDeclaration) String() string {
+	var out string
+	out += cd.TokenLiteral() + " " + cd.Name
+	if cd.SuperClass != "" {
+		out += " extends " + cd.SuperClass
+	}
+	out += " {\n"
+	
+	// Properties
+	for _, prop := range cd.Properties {
+		if prop.IsPrivate {
+			out += "  private "
+		}
+		if prop.IsReadonly {
+			out += "readonly "
+		}
+		out += prop.Name + ": " + prop.Type
+		if prop.Value != nil {
+			out += " = " + prop.Value.String()
+		}
+		out += ";\n"
+	}
+	
+	// Methods
+	for _, method := range cd.Methods {
+		if method.IsStatic {
+			out += "  static "
+		}
+		if method.IsPrivate {
+			out += "private "
+		}
+		out += method.Name + "("
+		
+		// Parameters
+		for i, param := range method.Parameters {
+			if i > 0 {
+				out += ", "
+			}
+			out += param.Name + ": " + param.Type
+		}
+		
+		out += ")"
+		if method.ReturnType != "" {
+			out += ": " + method.ReturnType
+		}
+		out += " " + method.Body.String() + "\n"
+	}
+	
+	out += "}"
+	return out
+}

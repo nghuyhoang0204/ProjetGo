@@ -274,36 +274,14 @@ func (p *Parser) parseFunctionParameters() []ast.Parameter {
 
 	p.nextToken()
 
-	param := ast.Parameter{}
-	param.Name = p.curToken.Literal
-
-	// Type optionnel
-	if p.peekToken.Type == lexer.COLON {
-		p.nextToken() // consommer ':'
-		if !p.expectPeek(lexer.IDENT) {
-			return identifiers
-		}
-		param.Type = p.curToken.Literal
-	}
-
+	param := p.parseParameter()
 	identifiers = append(identifiers, param)
 
 	for p.peekToken.Type == lexer.COMMA {
 		p.nextToken()
 		p.nextToken()
 
-		param := ast.Parameter{}
-		param.Name = p.curToken.Literal
-
-		// Type optionnel
-		if p.peekToken.Type == lexer.COLON {
-			p.nextToken() // consommer ':'
-			if !p.expectPeek(lexer.IDENT) {
-				return identifiers
-			}
-			param.Type = p.curToken.Literal
-		}
-
+		param := p.parseParameter()
 		identifiers = append(identifiers, param)
 	}
 
@@ -312,6 +290,30 @@ func (p *Parser) parseFunctionParameters() []ast.Parameter {
 	}
 
 	return identifiers
+}
+
+// parseParameter parse un seul paramètre de fonction
+func (p *Parser) parseParameter() ast.Parameter {
+	param := ast.Parameter{}
+	param.Name = p.curToken.Literal
+
+	// Type optionnel
+	if p.peekToken.Type == lexer.COLON {
+		p.nextToken() // consommer ':'
+		if !p.expectPeek(lexer.IDENT) {
+			return param
+		}
+		param.Type = p.curToken.Literal
+	}
+
+	// Valeur par défaut optionnelle
+	if p.peekToken.Type == lexer.ASSIGN {
+		p.nextToken() // consommer '='
+		p.nextToken()
+		param.DefaultValue = p.parseExpression(LOWEST)
+	}
+
+	return param
 }
 
 // parseIfStatement parse: if (condition) { then } else { else }

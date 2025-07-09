@@ -24,7 +24,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -45,7 +44,6 @@ func parseFlags() *Config {
 	flag.StringVar(&config.Host, "host", "localhost", "Host for web server")
 	flag.BoolVar(&config.Console, "console", false, "Run in console mode")
 	flag.StringVar(&config.File, "file", "", "Input file to transpile")
-	flag.StringVar(&config.Target, "target", "all", "Target language (js,java,python,csharp,go,rust,swift,php,all)")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Verbose output")
 
 	flag.Parse()
@@ -101,8 +99,8 @@ class Calculator {
 `
 	}
 
-	fmt.Println("🚀 Transpilateur Multi-Langages - Mode Console")
-	fmt.Println("=============================================")
+	fmt.Println("🚀 Transpilateur TypeScript → JavaScript - Mode Console")
+	fmt.Println("==================================================")
 	fmt.Println("📝 Code Source (TypeScript-like):")
 	fmt.Println("--------------------------------")
 	fmt.Println(input)
@@ -115,7 +113,7 @@ class Calculator {
 	program := p.ParseProgram()
 
 	// Check for parsing errors
-	if len(program) == 0 {
+	if len(program.Statements) == 0 {
 		fmt.Println("❌ Aucun code valide détecté. Vérifiez la syntaxe.")
 		return
 	}
@@ -125,14 +123,10 @@ class Calculator {
 		fmt.Printf("⏱️  Temps de parsing: %v\n\n", elapsed)
 	}
 
-	// Generate code for specified targets
-	targets := getTargetLanguages(config.Target)
-
-	for _, target := range targets {
-		fmt.Printf("=== %s Output ===\n", getLanguageName(target))
-		fmt.Println(generator.Generate(program, target))
-		fmt.Println()
-	}
+	// Générer le code JavaScript à partir du code source directement
+	fmt.Println("=== 🟨 JavaScript Output ===")
+	fmt.Println(generator.TranspileTS(input))
+	fmt.Println()
 
 	totalElapsed := time.Since(start)
 	if config.Verbose {
@@ -140,66 +134,20 @@ class Calculator {
 	}
 }
 
-func getTargetLanguages(target string) []generator.TargetLanguage {
-	switch strings.ToLower(target) {
-	case "js", "javascript":
-		return []generator.TargetLanguage{generator.JavaScript}
-	case "java":
-		return []generator.TargetLanguage{generator.Java}
-	case "python":
-		return []generator.TargetLanguage{generator.Python}
-	case "csharp", "c#":
-		return []generator.TargetLanguage{generator.CSharp}
-	case "go":
-		return []generator.TargetLanguage{generator.Go}
-	case "rust":
-		return []generator.TargetLanguage{generator.Rust}
-	case "swift":
-		return []generator.TargetLanguage{generator.Swift}
-	case "php":
-		return []generator.TargetLanguage{generator.PHP}
-	default:
-		return []generator.TargetLanguage{
-			generator.JavaScript,
-			generator.Java,
-			generator.Python,
-			generator.CSharp,
-			generator.Go,
-			generator.Rust,
-			generator.Swift,
-			generator.PHP,
-		}
-	}
-}
-
-func getLanguageName(target generator.TargetLanguage) string {
-	switch target {
-	case generator.JavaScript:
-		return "🟨 JavaScript"
-	case generator.Java:
-		return "☕ Java"
-	case generator.Python:
-		return "🐍 Python"
-	case generator.CSharp:
-		return "🔵 C#"
-	case generator.Go:
-		return "🐹 Go"
-	case generator.Rust:
-		return "🦀 Rust"
-	case generator.Swift:
-		return "🍎 Swift"
-	case generator.PHP:
-		return "🐘 PHP"
-	default:
-		return "Unknown"
-	}
-}
+// Ces fonctions ne sont plus nécessaires car nous ne gérons que TypeScript vers JavaScript
 
 func main() {
 	config := parseFlags()
 
-	fmt.Println("🚀 Transpilateur Multi-Langages v2.0")
-	fmt.Println("====================================")
+	fmt.Println("🚀 Transpilateur TypeScript → JavaScript v2.0")
+	fmt.Println("============================================")
+
+	// Option pour exécuter le test de transpilation
+	if len(os.Args) > 1 && os.Args[1] == "test" {
+		fmt.Println("🧪 Exécution du test de transpilation...")
+		fmt.Println("Pour exécuter les tests, utilisez 'go run test_default_params.go' ou 'go test'")
+		return
+	}
 
 	if config.Console {
 		fmt.Println("💻 Mode console activé...")
@@ -210,6 +158,7 @@ func main() {
 	// Par défaut, lancer l'interface web
 	fmt.Println("🌐 Lancement de l'interface web...")
 	fmt.Println("💡 Pour utiliser la version console: go run . console")
+	fmt.Println("💡 Pour exécuter le test de transpilation: go run . test")
 	fmt.Println("")
 	
 	StartWebServer()
