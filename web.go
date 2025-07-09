@@ -1,13 +1,15 @@
 package main
 
 import (
-	"html/template"
-	"net/http"
+	"ProjetGo/generator"
 	"ProjetGo/lexer"
 	"ProjetGo/parser"
-	"ProjetGo/generator"
+	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
+	"net/http"
+	"time"
 )
 
 type TranspilerResult struct {
@@ -17,190 +19,581 @@ type TranspilerResult struct {
 	Python       string
 	CSharp       string
 	Go           string
+	Rust         string
+	Swift        string
+	PHP          string
 	ErrorMessage string
+	ParseTime    string
+	TargetLang   string
 }
 
+// Enhanced HTML template with modern features
 const htmlTemplate = `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transpilateur Multi-Langages</title>
+    <title>🚀 Transpilateur Multi-Langages v2.0</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --border-color: #e9ecef;
+            --code-bg: #2d3748;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+            --warning-color: #ffc107;
         }
+        
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --border-color: #404040;
+            --code-bg: #2d2d2d;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            color: var(--text-color);
+        }
+        
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
-            background: white;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
             border-radius: 15px;
             padding: 30px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
-        h1 {
+            margin-bottom: 20px;
             text-align: center;
-            color: #333;
-            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
             font-size: 2.5em;
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .input-section {
-            margin-bottom: 30px;
-        }
-        label {
-            display: block;
-            margin-bottom: 10px;
-            font-weight: bold;
-            color: #555;
+        
+        .header p {
+            color: #666;
             font-size: 1.1em;
         }
-        textarea {
-            width: 100%;
-            height: 200px;
-            padding: 15px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            resize: vertical;
-            transition: border-color 0.3s;
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
         }
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
-        }
-        .btn-container {
-            text-align: center;
-            margin: 20px 0;
-        }
-        button {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+        
+        .theme-toggle {
+            background: var(--primary-color);
             color: white;
             border: none;
-            padding: 15px 30px;
-            font-size: 16px;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-        }
-        .results {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-            gap: 20px;
-            margin-top: 30px;
-        }
-        .result-box {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 10px;
-            padding: 20px;
-        }
-        .result-box h3 {
-            margin-top: 0;
-            color: #495057;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 10px;
-        }
-        .result-box pre {
-            background: #2d3748;
-            color: #e2e8f0;
-            padding: 15px;
+            padding: 10px 15px;
             border-radius: 8px;
-            overflow-x: auto;
-            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .input-section, .output-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .section-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        
+        .file-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: var(--success-color);
+        }
+        
+        .btn-warning {
+            background: var(--warning-color);
+            color: #333;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 400px;
+            padding: 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            background: var(--bg-color);
+            color: var(--text-color);
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+        
+        .language-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .lang-btn {
+            background: var(--bg-color);
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        
+        .lang-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        .lang-btn:hover {
+            transform: translateY(-1px);
+        }
+        
+        .output-container {
+            background: var(--code-bg);
+            border-radius: 8px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Fira Code', 'Courier New', monospace;
             font-size: 13px;
             line-height: 1.4;
+        }
+        
+        .output-container pre {
             margin: 0;
+            color: #e2e8f0;
         }
-        .error {
-            background: #fee;
-            border: 1px solid #fcc;
-            color: #c33;
-            padding: 15px;
+        
+        .status {
+            padding: 10px 15px;
             border-radius: 8px;
-            margin: 10px 0;
+            margin-top: 15px;
+            font-weight: 500;
         }
-        .example-btn {
-            background: #28a745;
-            margin-left: 10px;
-            padding: 10px 20px;
-            font-size: 14px;
+        
+        .status.success {
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success-color);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+        
+        .status.error {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--error-color);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+        
+        .status.info {
+            background: rgba(102, 126, 234, 0.1);
+            color: var(--primary-color);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+        }
+        
+        .examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .example-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .example-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary-color);
+        }
+        
+        .example-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+        
+        .example-desc {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: var(--text-color);
+        }
+        
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .language-selector {
+                justify-content: center;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Transpilateur Multi-Langages</h1>
+        <div class="header">
+            <h1>🚀 Transpilateur Multi-Langages v2.0</h1>
+            <p>Convertissez votre code TypeScript/JavaScript vers 8 langages différents</p>
+        </div>
         
-        <form method="POST">
+        <div class="controls">
+            <button class="btn theme-toggle" onclick="toggleTheme()">🌙 Mode Sombre</button>
+            <button class="btn btn-secondary" onclick="loadExample('basic')">📝 Exemple Basique</button>
+            <button class="btn btn-secondary" onclick="loadExample('function')">🔧 Exemple Fonction</button>
+            <button class="btn btn-secondary" onclick="loadExample('class')">🏗️ Exemple Classe</button>
+            <button class="btn btn-warning" onclick="clearCode()">🗑️ Effacer</button>
+        </div>
+        
+        <div class="main-content">
             <div class="input-section">
-                <label for="source">Code Source (TypeScript-like) :</label>
-                <textarea name="source" id="source" placeholder="Entrez votre code ici...
+                <div class="section-header">
+                    <div class="section-title">📝 Code Source (TypeScript/JavaScript)</div>
+                    <div class="file-controls">
+                        <input type="file" id="fileInput" accept=".ts,.js,.txt" style="display: none;" onchange="loadFile(event)">
+                        <button class="btn" onclick="document.getElementById('fileInput').click()">📁 Ouvrir</button>
+                        <button class="btn" onclick="downloadCode()">💾 Sauvegarder</button>
+                    </div>
+                </div>
+                <textarea id="sourceCode" placeholder="Entrez votre code TypeScript/JavaScript ici...
 Exemple :
-const message: string = &quot;Hello World&quot;;
+const message: string = 'Hello World';
 let count: number = 42;
-const pi: number = 3.14;">{{.SourceCode}}</textarea>
-            </div>
-            
-            <div class="btn-container">
-                <button type="submit">🔄 Transpiler</button>
-                <button type="button" class="example-btn" onclick="loadExample()">📝 Exemple</button>
-            </div>
-        </form>
+const pi: number = 3.14;
 
-        {{if .ErrorMessage}}
-        <div class="error">
-            <strong>Erreur :</strong> {{.ErrorMessage}}
-        </div>
-        {{end}}
-
-        {{if and (not .ErrorMessage) .JavaScript}}
-        <div class="results">
-            <div class="result-box">
-                <h3>🟨 JavaScript</h3>
-                <pre>{{.JavaScript}}</pre>
+function greet(name: string): string {
+    return 'Hello ' + name;
+}">{{.SourceCode}}</textarea>
             </div>
             
-            <div class="result-box">
-                <h3>☕ Java</h3>
-                <pre>{{.Java}}</pre>
-            </div>
-            
-            <div class="result-box">
-                <h3>🐍 Python</h3>
-                <pre>{{.Python}}</pre>
-            </div>
-            
-            <div class="result-box">
-                <h3>🔷 C#</h3>
-                <pre>{{.CSharp}}</pre>
-            </div>
-            
-            <div class="result-box">
-                <h3>🐹 Go</h3>
-                <pre>{{.Go}}</pre>
+            <div class="output-section">
+                <div class="section-header">
+                    <div class="section-title">⚡ Code Généré</div>
+                    <button class="btn" onclick="transpile()">🔄 Transpiler</button>
+                </div>
+                
+                <div class="language-selector">
+                    <button class="lang-btn active" data-lang="all">🌍 Tous</button>
+                    <button class="lang-btn" data-lang="javascript">🟨 JS</button>
+                    <button class="lang-btn" data-lang="java">☕ Java</button>
+                    <button class="lang-btn" data-lang="python">🐍 Python</button>
+                    <button class="lang-btn" data-lang="csharp">🔵 C#</button>
+                    <button class="lang-btn" data-lang="go">🐹 Go</button>
+                    <button class="lang-btn" data-lang="rust">🦀 Rust</button>
+                    <button class="lang-btn" data-lang="swift">🍎 Swift</button>
+                    <button class="lang-btn" data-lang="php">🐘 PHP</button>
+                </div>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <div>Transpilation en cours...</div>
+                </div>
+                
+                <div class="output-container" id="output">
+                    <pre>Sélectionnez un langage cible et cliquez sur "Transpiler"</pre>
+                </div>
+                
+                <div class="status info" id="status">Prêt à transpiler</div>
             </div>
         </div>
-        {{end}}
+        
+        <div class="examples">
+            <div class="example-card" onclick="loadExample('basic')">
+                <div class="example-title">🔤 Variables et Types</div>
+                <div class="example-desc">Déclarations de variables avec types TypeScript</div>
+            </div>
+            <div class="example-card" onclick="loadExample('function')">
+                <div class="example-title">🔧 Fonctions</div>
+                <div class="example-desc">Fonctions avec paramètres typés et valeurs de retour</div>
+            </div>
+            <div class="example-card" onclick="loadExample('class')">
+                <div class="example-title">🏗️ Classes et Interfaces</div>
+                <div class="example-desc">Classes TypeScript avec méthodes et propriétés</div>
+            </div>
+            <div class="example-card" onclick="loadExample('advanced')">
+                <div class="example-title">🚀 Fonctionnalités Avancées</div>
+                <div class="example-desc">Template literals, arrays, objets et plus</div>
+            </div>
+        </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    
     <script>
-        function loadExample() {
-            document.getElementById('source').value = 'const message: string = "Hello World";\nlet count: number = 42;\nconst pi: number = 3.14;\nlet isActive: boolean = true;';
+        let currentTheme = 'light';
+        let currentResults = {};
+        
+        // Theme toggle
+        function toggleTheme() {
+            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.body.setAttribute('data-theme', currentTheme === 'dark' ? 'dark' : 'light');
+            document.querySelector('.theme-toggle').textContent = currentTheme === 'dark' ? '☀️ Mode Clair' : '🌙 Mode Sombre';
         }
+        
+        // Language selector
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                updateOutput();
+            });
+        });
+        
+        // Examples
+                 const examples = {
+             basic: 'const message: string = "Hello World";\nlet count: number = 42;\nconst pi: number = 3.14;\nlet isActive: boolean = true;',
+            
+                         function: 'function greet(name: string): string {\n    return "Hello " + name;\n}\n\nfunction add(a: number, b: number): number {\n    return a + b;\n}\n\nconst result = add(5, 3);\nconsole.log(greet("Alice"));',
+             
+             class: 'interface User {\n    id: number;\n    name: string;\n    email: string;\n}\n\nclass Calculator {\n    private value: number = 0;\n    \n    add(x: number): void {\n        this.value += x;\n    }\n    \n    getResult(): number {\n        return this.value;\n    }\n}\n\nconst calc = new Calculator();\ncalc.add(10);\nconsole.log(calc.getResult());',
+             
+             advanced: 'const users: User[] = [\n    { id: 1, name: "Alice", email: "alice@example.com" },\n    { id: 2, name: "Bob", email: "bob@example.com" }\n];\n\nconst template = "Hello " + users[0].name + "!";\nconst numbers: number[] = [1, 2, 3, 4, 5];\n\nfor (let i = 0; i < numbers.length; i++) {\n    console.log(numbers[i]);\n}'
+        };
+        
+        function loadExample(type) {
+            document.getElementById('sourceCode').value = examples[type] || examples.basic;
+            transpile();
+        }
+        
+        function clearCode() {
+            document.getElementById('sourceCode').value = '';
+            document.getElementById('output').innerHTML = '<pre>Sélectionnez un langage cible et cliquez sur "Transpiler"</pre>';
+            document.getElementById('status').textContent = 'Code effacé';
+            document.getElementById('status').className = 'status info';
+        }
+        
+        // File operations
+        function loadFile(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('sourceCode').value = e.target.result;
+                    transpile();
+                };
+                reader.readAsText(file);
+            }
+        }
+        
+        function downloadCode() {
+            const code = document.getElementById('sourceCode').value;
+            if (code.trim()) {
+                const blob = new Blob([code], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'code.ts';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+        
+        // Real-time transpilation
+        let transpileTimeout;
+        document.getElementById('sourceCode').addEventListener('input', function() {
+            clearTimeout(transpileTimeout);
+            transpileTimeout = setTimeout(transpile, 1000); // Debounce 1 second
+        });
+        
+        async function transpile() {
+            const code = document.getElementById('sourceCode').value;
+            const activeLang = document.querySelector('.lang-btn.active').dataset.lang;
+            
+            if (!code.trim()) {
+                document.getElementById('output').innerHTML = '<pre>Sélectionnez un langage cible et cliquez sur "Transpiler"</pre>';
+                document.getElementById('status').textContent = 'Prêt à transpiler';
+                document.getElementById('status').className = 'status info';
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('output').style.display = 'none';
+            document.getElementById('status').textContent = 'Transpilation en cours...';
+            document.getElementById('status').className = 'status info';
+            
+            try {
+                const response = await fetch('/transpile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                        target: activeLang
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentResults = result;
+                    updateOutput();
+                                         document.getElementById('status').textContent = 'Transpilation réussie (' + result.parseTime + ')';
+                    document.getElementById('status').className = 'status success';
+                } else {
+                                         document.getElementById('output').innerHTML = '<pre class="error">' + result.error + '</pre>';
+                    document.getElementById('status').textContent = 'Erreur de transpilation';
+                    document.getElementById('status').className = 'status error';
+                }
+            } catch (error) {
+                document.getElementById('output').innerHTML = '<pre class="error">Erreur de connexion</pre>';
+                document.getElementById('status').textContent = 'Erreur de connexion';
+                document.getElementById('status').className = 'status error';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('output').style.display = 'block';
+            }
+        }
+        
+        function updateOutput() {
+            const activeLang = document.querySelector('.lang-btn.active').dataset.lang;
+            let output = '';
+            
+            if (activeLang === 'all') {
+                const languages = [
+                    { key: 'javascript', name: '🟨 JavaScript', code: currentResults.javascript },
+                    { key: 'java', name: '☕ Java', code: currentResults.java },
+                    { key: 'python', name: '🐍 Python', code: currentResults.python },
+                    { key: 'csharp', name: '🔵 C#', code: currentResults.csharp },
+                    { key: 'go', name: '🐹 Go', code: currentResults.go },
+                    { key: 'rust', name: '🦀 Rust', code: currentResults.rust },
+                    { key: 'swift', name: '🍎 Swift', code: currentResults.swift },
+                    { key: 'php', name: '🐘 PHP', code: currentResults.php }
+                ];
+                
+                languages.forEach(lang => {
+                    if (lang.code) {
+                                                 output += '<h4>' + lang.name + '</h4><pre><code class="language-' + lang.key + '">' + lang.code + '</code></pre>';
+                    }
+                });
+            } else {
+                const code = currentResults[activeLang];
+                if (code) {
+                                         output = '<pre><code class="language-' + activeLang + '">' + code + '</code></pre>';
+                } else {
+                    output = '<pre>Aucun code généré pour ce langage</pre>';
+                }
+            }
+            
+            document.getElementById('output').innerHTML = output;
+            
+            // Apply syntax highlighting
+            if (window.Prism) {
+                Prism.highlightAll();
+            }
+        }
+        
+        // Auto-transpile on page load if there's code
+        window.addEventListener('load', function() {
+            const code = document.getElementById('sourceCode').value;
+            if (code.trim()) {
+                transpile();
+            }
+        });
     </script>
 </body>
 </html>
@@ -220,21 +613,29 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 		result.SourceCode = sourceCode
 
 		if sourceCode != "" {
+			start := time.Now()
+
 			// Transpilation
 			l := lexer.New(sourceCode)
 			p := parser.New(l)
 			program := p.ParseProgram()
 
-			// Génération dans tous les langages
-			result.JavaScript = generator.Generate(program, generator.JavaScript)
-			result.Java = generator.Generate(program, generator.Java)
-			result.Python = generator.Generate(program, generator.Python)
-			result.CSharp = generator.Generate(program, generator.CSharp)
-			result.Go = generator.Generate(program, generator.Go)
+			elapsed := time.Since(start)
+			result.ParseTime = elapsed.String()
 
-			// Vérification si la transpilation a produit du contenu
-			if result.JavaScript == "" && result.Java == "" {
+			// Check for parsing errors
+			if len(program) == 0 {
 				result.ErrorMessage = "Aucun code valide détecté. Vérifiez la syntaxe de votre code source."
+			} else {
+				// Génération dans tous les langages
+				result.JavaScript = generator.Generate(program, generator.JavaScript)
+				result.Java = generator.Generate(program, generator.Java)
+				result.Python = generator.Generate(program, generator.Python)
+				result.CSharp = generator.Generate(program, generator.CSharp)
+				result.Go = generator.Generate(program, generator.Go)
+				result.Rust = generator.Generate(program, generator.Rust)
+				result.Swift = generator.Generate(program, generator.Swift)
+				result.PHP = generator.Generate(program, generator.PHP)
 			}
 		}
 	}
@@ -242,11 +643,59 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, result)
 }
 
+// New API endpoint for real-time transpilation
+func handleTranspile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Code   string `json:"code"`
+		Target string `json:"target"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	start := time.Now()
+
+	l := lexer.New(request.Code)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	elapsed := time.Since(start)
+
+	response := map[string]interface{}{
+		"success":   len(program) > 0,
+		"parseTime": elapsed.String(),
+	}
+
+	if len(program) == 0 {
+		response["error"] = "Aucun code valide détecté. Vérifiez la syntaxe."
+	} else {
+		response["javascript"] = generator.Generate(program, generator.JavaScript)
+		response["java"] = generator.Generate(program, generator.Java)
+		response["python"] = generator.Generate(program, generator.Python)
+		response["csharp"] = generator.Generate(program, generator.CSharp)
+		response["go"] = generator.Generate(program, generator.Go)
+		response["rust"] = generator.Generate(program, generator.Rust)
+		response["swift"] = generator.Generate(program, generator.Swift)
+		response["php"] = generator.Generate(program, generator.PHP)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func StartWebServer() {
 	http.HandleFunc("/", handleHome)
-	
+	http.HandleFunc("/transpile", handleTranspile)
+
 	fmt.Println("🌐 Serveur web démarré sur http://localhost:8080")
 	fmt.Println("📝 Ouvrez votre navigateur et commencez à transpiler !")
-	
+
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
