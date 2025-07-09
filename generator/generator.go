@@ -19,10 +19,6 @@ const (
 // CodeGenerator interface pour tous les générateurs de code
 type CodeGenerator interface {
 	Generate(statements []ast.Statement) string
-	GenerateVariableDeclaration(vd *ast.VariableDeclaration) string
-	GenerateStringLiteral(sl *ast.StringLiteral) string
-	GenerateNumberLiteral(nl *ast.NumberLiteral) string
-	GenerateBooleanLiteral(bl *ast.BooleanLiteral) string
 }
 
 // Generate génère du code dans le langage cible spécifié
@@ -194,7 +190,10 @@ func (jsg *JavaScriptGenerator) GenerateExpression(expr ast.Expression) string {
 }
 
 func (jsg *JavaScriptGenerator) GenerateTemplateLiteral(tl *ast.TemplateLiteral) string {
-	return "`" + tl.Parts[0].TokenLiteral() + "`"
+	if len(tl.Parts) > 0 {
+		return "`" + tl.Parts[0].TokenLiteral() + "`"
+	}
+	return "`template`"
 }
 
 func (jsg *JavaScriptGenerator) GenerateArrayLiteral(al *ast.ArrayLiteral) string {
@@ -541,6 +540,10 @@ func (jg *JavaGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration
 		sb.WriteString("boolean ")
 	case *ast.ArrayLiteral:
 		sb.WriteString("int[] ") // Simplifié pour les arrays de nombres
+	case *ast.ObjectLiteral:
+		sb.WriteString("java.util.HashMap<String, Object> ")
+	case *ast.TemplateLiteral:
+		sb.WriteString("String ")
 	default:
 		sb.WriteString("Object ")
 	}
@@ -558,11 +561,35 @@ func (jg *JavaGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration
 			sb.WriteString(jg.GenerateBooleanLiteral(val))
 		case *ast.ArrayLiteral:
 			sb.WriteString(jg.GenerateArrayLiteral(val))
+		case *ast.ObjectLiteral:
+			sb.WriteString(jg.GenerateObjectLiteral(val))
+		case *ast.TemplateLiteral:
+			sb.WriteString(jg.GenerateTemplateLiteral(val))
+		default:
+			sb.WriteString(jg.GenerateExpression(val))
 		}
 	}
 	
 	sb.WriteString(";\n")
 	return sb.String()
+}
+
+func (jg *JavaGenerator) GenerateCallExpression(ce *ast.CallExpression) string {
+	var sb strings.Builder
+	sb.WriteString(jg.GenerateExpression(ce.Function))
+	sb.WriteString("(")
+	for i, arg := range ce.Arguments {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(jg.GenerateExpression(arg))
+	}
+	sb.WriteString(")")
+	return sb.String()
+}
+
+func (jg *JavaGenerator) GenerateIndexExpression(ie *ast.IndexExpression) string {
+	return jg.GenerateExpression(ie.Left) + "[" + jg.GenerateExpression(ie.Index) + "]"
 }
 
 func (jg *JavaGenerator) GenerateArrayLiteral(al *ast.ArrayLiteral) string {
@@ -604,16 +631,32 @@ func (jg *JavaGenerator) GenerateExpression(expr ast.Expression) string {
 		return jg.GenerateNumberLiteral(e)
 	case *ast.BooleanLiteral:
 		return jg.GenerateBooleanLiteral(e)
+	case *ast.TemplateLiteral:
+		return jg.GenerateTemplateLiteral(e)
 	case *ast.ArrayLiteral:
 		return jg.GenerateArrayLiteral(e)
 	case *ast.ObjectLiteral:
 		return jg.GenerateObjectLiteral(e)
+	case *ast.CallExpression:
+		return jg.GenerateCallExpression(e)
+	case *ast.IndexExpression:
+		return jg.GenerateIndexExpression(e)
 	case *ast.Identifier:
 		return e.Value
 	case *ast.InfixExpression:
 		return jg.GenerateExpression(e.Left) + " " + e.Operator + " " + jg.GenerateExpression(e.Right)
 	}
 	return ""
+}
+
+func (jg *JavaGenerator) GenerateTemplateLiteral(tl *ast.TemplateLiteral) string {
+	// En Java, convertir les template literals en String.format ou concaténation simple
+	if len(tl.Parts) > 0 {
+		content := tl.Parts[0].TokenLiteral()
+		// Pour l'instant, retourner comme string simple (plus tard on peut parser ${} pour interpolation)
+		return "\"" + content + "\""
+	}
+	return "\"\""
 }
 
 func (jg *JavaGenerator) GenerateStringLiteral(sl *ast.StringLiteral) string {
@@ -763,6 +806,16 @@ func (pg *PythonGenerator) GeneratePythonExpression(expr ast.Expression) string 
 			return "True"
 		}
 		return "False"
+	case *ast.TemplateLiteral:
+		return pg.GenerateTemplateLiteral(e)
+	case *ast.ArrayLiteral:
+		return pg.GenerateArrayLiteral(e)
+	case *ast.ObjectLiteral:
+		return pg.GenerateObjectLiteral(e)
+	case *ast.CallExpression:
+		return pg.GenerateCallExpression(e)
+	case *ast.IndexExpression:
+		return pg.GenerateIndexExpression(e)
 	case *ast.Identifier:
 		return e.Value
 	case *ast.InfixExpression:
@@ -817,12 +870,32 @@ func (pg *PythonGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclarati
 		sb.WriteString(pg.GenerateArrayLiteral(val))
 	case *ast.ObjectLiteral:
 		sb.WriteString(pg.GenerateObjectLiteral(val))
+	case *ast.TemplateLiteral:
+		sb.WriteString(pg.GenerateTemplateLiteral(val))
 	default:
 		sb.WriteString(pg.GeneratePythonExpression(val))
 	}
 	
 	sb.WriteString("\n")
 	return sb.String()
+}
+
+func (pg *PythonGenerator) GenerateCallExpression(ce *ast.CallExpression) string {
+	var sb strings.Builder
+	sb.WriteString(pg.GeneratePythonExpression(ce.Function))
+	sb.WriteString("(")
+	for i, arg := range ce.Arguments {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(pg.GeneratePythonExpression(arg))
+	}
+	sb.WriteString(")")
+	return sb.String()
+}
+
+func (pg *PythonGenerator) GenerateIndexExpression(ie *ast.IndexExpression) string {
+	return pg.GeneratePythonExpression(ie.Left) + "[" + pg.GeneratePythonExpression(ie.Index) + "]"
 }
 
 func (pg *PythonGenerator) GenerateArrayLiteral(al *ast.ArrayLiteral) string {
@@ -852,6 +925,31 @@ func (pg *PythonGenerator) GenerateObjectLiteral(ol *ast.ObjectLiteral) string {
 	}
 	sb.WriteString("}")
 	return sb.String()
+}
+
+func (pg *PythonGenerator) GenerateStringLiteral(sl *ast.StringLiteral) string {
+	return "\"" + sl.Value + "\""
+}
+
+func (pg *PythonGenerator) GenerateNumberLiteral(nl *ast.NumberLiteral) string {
+	return nl.Value
+}
+
+func (pg *PythonGenerator) GenerateBooleanLiteral(bl *ast.BooleanLiteral) string {
+	if bl.Value {
+		return "True"
+	}
+	return "False"
+}
+
+func (pg *PythonGenerator) GenerateTemplateLiteral(tl *ast.TemplateLiteral) string {
+	// En Python, convertir les template literals en f-strings
+	if len(tl.Parts) > 0 {
+		content := tl.Parts[0].TokenLiteral()
+		// Pour l'instant, retourner comme string simple (plus tard on peut parser ${} pour interpolation)
+		return "\"" + content + "\""
+	}
+	return "\"\""
 }
 
 // CSharpGenerator génère du code C#

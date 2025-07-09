@@ -1,0 +1,11 @@
+SUCCESS
+=======
+
+Code: const nom: string = "Alice";
+console.log("Bonjour " + nom);
+
+Parsed Elements: 2
+
+JavaScript Output:
+const nom = "Alice";
+log("Bonjour " + nom);

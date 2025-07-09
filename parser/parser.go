@@ -24,6 +24,11 @@ func (p *Parser) nextToken() {
 	p.peekToken = p.l.NextToken()
 }
 func (p *Parser) ParseStatement() ast.Statement {
+	// Ignorer les commentaires
+	for p.curToken.Type == lexer.COMMENT {
+		p.nextToken()
+	}
+	
 	switch p.curToken.Literal {
 	case "let", "const", "var":
 		return p.parseVariableDeclaration()
@@ -158,8 +163,15 @@ func (p *Parser) parseBlockStatement() ast.Statement {
 		stmt := p.ParseStatement()
 		if stmt != nil {
 			statements = append(statements, stmt)
+		} else {
+			// Si ParseStatement retourne nil, avancer pour éviter la boucle infinie
+			p.nextToken()
 		}
-		p.nextToken()
+		// Ne pas faire p.nextToken() ici car ParseStatement() gère déjà l'avancement
+	}
+	
+	if p.curToken.Type == lexer.RBRACE {
+		p.nextToken() // passer '}'
 	}
 	
 	return &ast.BlockStatement{Statements: statements}
@@ -207,6 +219,10 @@ func (p *Parser) parseInfixExpression() ast.Expression {
 func (p *Parser) parsePrimaryExpression() ast.Expression {
 	switch p.curToken.Type {
 	case lexer.IDENT:
+		// Gérer 'console' comme un identifiant spécial
+		if p.curToken.Literal == "console" {
+			return p.parseConsoleCall()
+		}
 		return p.parseIdentifierOrCall()
 	case lexer.STRING:
 		return &ast.StringLiteral{Value: p.curToken.Literal}
@@ -223,8 +239,6 @@ func (p *Parser) parsePrimaryExpression() ast.Expression {
 			return &ast.BooleanLiteral{Value: true}
 		} else if p.curToken.Literal == "false" {
 			return &ast.BooleanLiteral{Value: false}
-		} else if p.curToken.Literal == "console" {
-			return p.parseConsoleCall()
 		}
 	}
 	return nil
@@ -270,6 +284,11 @@ func (p *Parser) parseFunctionCall(fn ast.Expression) ast.Expression {
 		}
 	}
 	
+	// Passer la parenthèse fermante
+	if p.curToken.Type == lexer.RPAREN {
+		p.nextToken()
+	}
+	
 	return &ast.CallExpression{Function: fn, Arguments: args}
 }
 
@@ -293,20 +312,27 @@ func (p *Parser) parseDotAccess(obj ast.Expression) ast.Expression {
 }
 
 func (p *Parser) parseConsoleCall() ast.Expression {
-	// console.log(...)
-	p.nextToken() // aller à '.'
-	if p.curToken.Type == lexer.DOT {
-		p.nextToken() // aller à 'log'
-		method := p.curToken.Literal
-		p.nextToken() // aller à '('
+	// On est sur 'console'
+	consoleObj := &ast.Identifier{Value: "console"}
+	
+	// Vérifier s'il y a un point
+	if p.peekToken.Type == lexer.DOT {
+		p.nextToken() // aller à '.'
+		p.nextToken() // aller à 'log' (ou autre méthode)
 		
-		if p.curToken.Type == lexer.LPAREN {
-			consoleObj := &ast.Identifier{Value: "console"}
-			methodAccess := &ast.DotExpression{Object: consoleObj, Property: method}
+		method := p.curToken.Literal
+		methodAccess := &ast.DotExpression{Object: consoleObj, Property: method}
+		
+		// Vérifier s'il y a un appel de fonction
+		if p.peekToken.Type == lexer.LPAREN {
+			p.nextToken() // aller à '('
 			return p.parseFunctionCall(methodAccess)
 		}
+		
+		return methodAccess
 	}
-	return &ast.Identifier{Value: "console"}
+	
+	return consoleObj
 }
 
 func (p *Parser) parseTemplateLiteral() ast.Expression {
@@ -449,11 +475,17 @@ func (p *Parser) parseFunction() ast.Statement {
 	var returnType string
 	if p.curToken.Type == lexer.COLON {
 		p.nextToken() // passer ':'
-		returnType = p.curToken.Literal
-		p.nextToken()
+		if p.curToken.Type == lexer.IDENT {
+			returnType = p.curToken.Literal
+			p.nextToken()
+		}
 	}
 	
 	// Corps de la fonction
+	if p.curToken.Type != lexer.LBRACE {
+		return nil
+	}
+	
 	body := p.parseBlockStatement()
 	
 	var bodyStatements []ast.Statement
@@ -474,7 +506,13 @@ func (p *Parser) parseParameters() []ast.Parameter {
 	
 	p.nextToken() // passer '('
 	
-	for p.curToken.Type != lexer.RPAREN && p.curToken.Type != lexer.EOF {
+	// Boucle avec sécurité contre les boucles infinies
+	maxIterations := 50 // Sécurité
+	iterations := 0
+	
+	for p.curToken.Type != lexer.RPAREN && p.curToken.Type != lexer.EOF && iterations < maxIterations {
+		iterations++
+		
 		if p.curToken.Type == lexer.IDENT {
 			param := ast.Parameter{Name: p.curToken.Literal}
 			p.nextToken()
@@ -482,16 +520,22 @@ func (p *Parser) parseParameters() []ast.Parameter {
 			// Type optionnel
 			if p.curToken.Type == lexer.COLON {
 				p.nextToken() // passer ':'
-				param.Type = p.curToken.Literal
-				p.nextToken()
+				if p.curToken.Type == lexer.IDENT {
+					param.Type = p.curToken.Literal
+					p.nextToken()
+				}
 			}
 			
 			params = append(params, param)
 			
 			if p.curToken.Type == lexer.COMMA {
 				p.nextToken() // passer ','
+			} else if p.curToken.Type != lexer.RPAREN {
+				// Si ce n'est ni ',' ni ')', sortir pour éviter boucle infinie
+				break
 			}
 		} else {
+			// Avancer si token inattendu pour éviter boucle infinie
 			p.nextToken()
 		}
 	}
@@ -512,19 +556,25 @@ func (p *Parser) parseVariableDeclaration() *ast.VariableDeclaration {
 
 	p.nextToken() // : ou =
 	if p.curToken.Type == lexer.COLON {
-		p.nextToken() // type (ex: "string")
-		vd.Type = p.curToken.Literal
-		
-		// Gérer les types array comme "number[]"
-		if p.peekToken.Type == lexer.LBRACKET {
-			p.nextToken() // aller à '['
-			if p.peekToken.Type == lexer.RBRACKET {
-				p.nextToken() // aller à ']'
-				vd.Type = vd.Type + "[]"
+		// Skip le type (simple ou complexe) jusqu'à =
+		for p.curToken.Type != lexer.OPERATOR || p.curToken.Literal != "=" {
+			if p.curToken.Type == lexer.EOF {
+				break
 			}
+			
+			// Capturer les types simples
+			if p.curToken.Type == lexer.IDENT && vd.Type == "" {
+				vd.Type = p.curToken.Literal
+			}
+			
+			// Gérer les types array comme "number[]"
+			if p.curToken.Type == lexer.LBRACKET && p.peekToken.Type == lexer.RBRACKET {
+				vd.Type = vd.Type + "[]"
+				p.nextToken() // skip ']'
+			}
+			
+			p.nextToken()
 		}
-		
-		p.nextToken() // = ou prochain token
 	}
 
 	if p.curToken.Type == lexer.OPERATOR && p.curToken.Literal == "=" {

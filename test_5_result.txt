@@ -1,0 +1,11 @@
+SUCCESS
+=======
+
+Code: const nom: string = "Alice";
+let notes: number[] = [12, 15, 9];
+
+Parsed Elements: 2
+
+JavaScript Output:
+const nom = "Alice";
+let notes = [12, 15, 9];

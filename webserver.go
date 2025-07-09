@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"encoding/json"
 	"strings"
+	"os"
 	"ProjetGo/lexer"
 	"ProjetGo/parser"
 	"ProjetGo/generator"
@@ -135,47 +136,7 @@ const htmlTemplate = `<!DOCTYPE html>
                     📝 Code Source (TypeScript/JavaScript)
                     <button class="example-btn" onclick="loadExample()">Charger Exemple</button>
                 </div>
-                <textarea id="sourceCode" placeholder="Entrez votre code TypeScript/JavaScript ici...
-
-🎯 ACTUELLEMENT SUPPORTÉ :
-
-✅ Variables avec types :
-const nom: string = 'Alice';
-let age: number = 25;
-var actif: boolean = true;
-
-✅ Types de base :
-- string (chaînes)
-- number (nombres) 
-- boolean (true/false)
-
-✅ Structures de données :
-let valeurs: number[] = [10, 20, 30];
-let personne = { nom: 'Bob', age: 30 };
-
-✅ Fonctions simples :
-function saluer(nom: string): string {
-  return 'Salut !';
-}
-
-✅ Conditions :
-if (age >= 18) {
-  return 'Majeur';
-} else {
-  return 'Mineur';  
-}
-
-✅ Utilisation :
-console.log(message);
-console.log(saluer('Marie'));
-
-� EXEMPLE COMPLET À TESTER : Cliquez 'Charger Exemple'
-
-🚧 EN COURS D'AMÉLIORATION :
-- Boucles (for/while)
-- Template literals complets 
-- Expressions arithmétiques complexes
-- Commentaires (à ignorer)"></textarea>
+                <textarea id="sourceCode" placeholder="Entrez votre code TypeScript/JavaScript ici..."></textarea>
                 
                 <div class="controls">
                     <label>Langage cible :</label>
@@ -187,13 +148,12 @@ console.log(saluer('Marie'));
                         <option value="go">🐹 Go</option>
                     </select>
                     <button onclick="transpile()">🔄 Transpiler</button>
-                    <button onclick="transpileAll()">🎯 Tous les langages</button>
                 </div>
             </div>
             
             <div class="output-section">
                 <div class="section-header">
-                    ⚡ Code Généré
+                    ⚡ Code Généré (parsing optimisé)
                 </div>
                 <div id="output" class="output">Sélectionnez un langage cible et cliquez sur "Transpiler"</div>
                 <div id="status" class="status">Prêt à transpiler</div>
@@ -203,37 +163,35 @@ console.log(saluer('Marie'));
 
     <script>
         function loadExample() {
-            document.getElementById('sourceCode').value = ` + "`" + `// Variables avec types
-const nom: string = "Alice";
-let age: number = 25;
-var actif: boolean = true;
+            document.getElementById('sourceCode').value = ` + "`" + `const nom: string = "Lucie";
+let age: number = 17;
+var majeur: boolean = false;
 
-// Types de base
-let score: number = 42;
-let message: string = "Hello World";
-let valeurs: number[] = [10, 20, 30];
-let personne = {
-  nom: "Bob",
-  age: 30
-};
-
-// Fonction simple
-function saluer(prenom: string): string {
-  return "Salut !";
+function saluer(n: string): void {
+  console.log("Bonjour " + n);
 }
 
-// Condition simple
-function verifierAge(age: number): string {
-  if (age >= 18) {
-    return "Majeur";
-  } else {
-    return "Mineur";
-  }
+if (age >= 18) {
+  majeur = true;
+} else {
+  majeur = false;
 }
 
-// Utilisation
-console.log(message);
-console.log(saluer("Marie"));` + "`" + `;
+let notes: number[] = [12, 15, 9];
+let eleve = { nom: nom, age: age };
+
+for (let i = 0; i < notes.length; i++) {
+  console.log("Note :", notes[i]);
+}
+
+let compteur: number = 3;
+while (compteur > 0) {
+  console.log("Compte :", compteur);
+  compteur--;
+}
+
+saluer(eleve.nom);
+console.log("Est majeur :", majeur);` + "`" + `;
         }
 
         async function transpile() {
@@ -248,8 +206,9 @@ console.log(saluer("Marie"));` + "`" + `;
                 return;
             }
             
-            status.textContent = '⏳ Transpilation en cours...';
+            status.textContent = '🔄 Parsing optimisé pour ' + target.toUpperCase() + '...';
             status.className = 'status';
+            output.textContent = 'Transpilation en cours...';
             
             try {
                 const response = await fetch('/transpile', {
@@ -275,55 +234,6 @@ console.log(saluer("Marie"));` + "`" + `;
                 status.className = 'status error';
             }
         }
-        
-        async function transpileAll() {
-            const code = document.getElementById('sourceCode').value;
-            const output = document.getElementById('output');
-            const status = document.getElementById('status');
-            
-            if (!code.trim()) {
-                status.textContent = '❌ Veuillez entrer du code à transpiler';
-                status.className = 'status error';
-                return;
-            }
-            
-            status.textContent = '⏳ Transpilation vers tous les langages...';
-            status.className = 'status';
-            
-            const languages = ['javascript', 'java', 'python', 'csharp', 'go'];
-            let allOutput = '';
-            
-            for (const lang of languages) {
-                try {
-                    const response = await fetch('/transpile', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ code, target: lang })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    allOutput += '=== ' + lang.toUpperCase() + ' ===\n';
-                    if (result.success) {
-                        allOutput += result.output + '\n\n';
-                    } else {
-                        allOutput += '❌ Erreur: ' + result.error + '\n\n';
-                    }
-                } catch (error) {
-                    allOutput += '❌ Erreur: ' + error.message + '\n\n';
-                }
-            }
-            
-            output.textContent = allOutput;
-            status.textContent = '✅ Transpilation terminée pour tous les langages';
-            status.className = 'status';
-        }
-        
-        // Auto-resize textarea
-        document.getElementById('sourceCode').addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = this.scrollHeight + 'px';
-        });
     </script>
 </body>
 </html>`
@@ -333,26 +243,68 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, htmlTemplate)
 }
 
-func extractSimpleVariables(code string) string {
-	// Extraire intelligemment les variables simples du code complexe
-	lines := strings.Split(code, "\n")
-	var extractedVars []string
-	
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		
-		// Chercher les déclarations de variables simples
-		if strings.HasPrefix(line, "const ") || strings.HasPrefix(line, "let ") || strings.HasPrefix(line, "var ") {
-			// Ignorer les lignes trop complexes (avec { ou [ ou fonction)
-			if !strings.Contains(line, "{") && !strings.Contains(line, "[") && 
-			   !strings.Contains(line, "(") && strings.Contains(line, "=") &&
-			   !strings.Contains(line, "new ") && !strings.Contains(line, "=>") {
-				extractedVars = append(extractedVars, line)
-			}
+func saveParsingForSingleLanguage(code string, targetLang string, filename string) (string, error) {
+	// Parser le code avec gestion des erreurs
+	defer func() {
+		if r := recover(); r != nil {
+			// En cas de crash, créer un fichier d'erreur
+			errorContent := fmt.Sprintf("PARSING ERROR\n=============\n\nCode: %s\n\nTarget Language: %s\n\nError: %v", code, targetLang, r)
+			os.WriteFile(filename, []byte(errorContent), 0644)
+		}
+	}()
+
+	l := lexer.New(code)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	// Convertir le nom du langage vers le type TargetLanguage
+	var lang generator.TargetLanguage
+	switch targetLang {
+	case "javascript":
+		lang = generator.JavaScript
+	case "java":
+		lang = generator.Java
+	case "python":
+		lang = generator.Python
+	case "csharp":
+		lang = generator.CSharp
+	case "go":
+		lang = generator.Go
+	default:
+		lang = generator.JavaScript
+	}
+
+	// Générer SEULEMENT pour le langage demandé
+	output := generator.Generate(program, lang)
+	if output == "" {
+		output = "// Aucun code généré pour " + targetLang
+	}
+
+	// Créer le contenu du fichier de parsing
+	var content strings.Builder
+	content.WriteString("PARSING RESULTS\n")
+	content.WriteString("===============\n\n")
+	content.WriteString("SOURCE CODE:\n")
+	content.WriteString(code + "\n\n")
+	content.WriteString(fmt.Sprintf("TARGET LANGUAGE: %s\n", strings.ToUpper(targetLang)))
+	content.WriteString(fmt.Sprintf("PARSED ELEMENTS: %d\n", len(program)))
+	content.WriteString("=================\n\n")
+
+	for i, stmt := range program {
+		if stmt != nil {
+			content.WriteString(fmt.Sprintf("%d. Type: %T\n", i+1, stmt))
+			content.WriteString(fmt.Sprintf("   Token: %s\n", stmt.TokenLiteral()))
+			content.WriteString("\n")
 		}
 	}
-	
-	return strings.Join(extractedVars, "\n")
+
+	content.WriteString(fmt.Sprintf("\n\nTRANSPILATION RESULT FOR %s:\n", strings.ToUpper(targetLang)))
+	content.WriteString("=============================================\n\n")
+	content.WriteString(output)
+
+	// Sauvegarder dans le fichier
+	err := os.WriteFile(filename, []byte(content.String()), 0644)
+	return output, err
 }
 
 func handleTranspile(w http.ResponseWriter, r *http.Request) {
@@ -370,68 +322,39 @@ func handleTranspile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Transpiler le code
-	// D'abord essayer d'extraire les variables simples si le code est complexe
-	simpleVars := extractSimpleVariables(req.Code)
+	// Nom de fichier spécifique au langage demandé
+	filename := fmt.Sprintf("parsing_%s.txt", req.Target)
 	
-	var codeToProcess string
-	var isSimplified bool
+	// 1. SUPPRIMER le fichier précédent pour ce langage
+	os.Remove(filename) // Ignore les erreurs
 	
-	if simpleVars != "" && simpleVars != req.Code {
-		codeToProcess = simpleVars
-		isSimplified = true
-	} else {
-		codeToProcess = req.Code
-		isSimplified = false
-	}
-	
-	l := lexer.New(codeToProcess)
-	p := parser.New(l)
-	program := p.ParseProgram()
-
-	var output string
-	var targetLang generator.TargetLanguage
-
-	switch req.Target {
-	case "javascript":
-		targetLang = generator.JavaScript
-	case "java":
-		targetLang = generator.Java
-	case "python":
-		targetLang = generator.Python
-	case "csharp":
-		targetLang = generator.CSharp
-	case "go":
-		targetLang = generator.Go
-	default:
-		targetLang = generator.JavaScript
+	// 2. PARSER et GÉNÉRER uniquement pour le langage demandé
+	output, err := saveParsingForSingleLanguage(req.Code, req.Target, filename)
+	if err != nil {
+		json.NewEncoder(w).Encode(TranspileResponse{
+			Success: false,
+			Error:   "Erreur lors du parsing: " + err.Error(),
+		})
+		return
 	}
 
-	output = generator.Generate(program, targetLang)
-
+	// 3. Vérifier et nettoyer l'output
 	if output == "" || strings.TrimSpace(output) == "" {
-		output = "// Aucun code généré - Le code source contient peut-être des structures non encore supportées\n"
-		output += "// Structures actuellement supportées :\n"
-		output += "// - Déclarations de variables (const, let, var)\n"
-		output += "// - Types de base (string, number, boolean)\n"
-		output += "// - Classes (structure de base)\n"
-		output += "// - Interfaces (reconnaissance)\n"
-		output += "\n// Votre code sera analysé et des améliorations sont en cours..."
-	} else if isSimplified {
-		output = "// ⚡ Code simplifié automatiquement - Seules les variables simples ont été extraites\n" +
-				"// Les structures complexes (classes, interfaces, fonctions) sont en cours de développement\n\n" + output
+		output = "// Aucun code généré - Le parsing a peut-être échoué\n"
+		output += "// Consultez le fichier " + filename + " pour plus de détails"
 	}
 
 	response := TranspileResponse{
 		Success: true,
-		Output:  output,
+		Output:  fmt.Sprintf("// 🔄 Parsing optimisé pour %s\n// 📄 Détails dans: %s\n\n%s", 
+			strings.ToUpper(req.Target), filename, output),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func StartWebServer() {
+func main() {
 	http.HandleFunc("/", handleHome)
 	http.HandleFunc("/transpile", handleTranspile)
 

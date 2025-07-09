@@ -1,0 +1,15 @@
+SUCCESS
+=======
+
+Code: const nom: string = "Alice";
+function saluer(n: string): void {
+  console.log("Bonjour " + n);
+}
+
+Parsed Elements: 2
+
+JavaScript Output:
+const nom = "Alice";
+{
+
+};

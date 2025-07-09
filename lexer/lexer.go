@@ -218,12 +218,15 @@ func (l *Lexer) NextToken() Token {
     case '"':
         tok.Type = STRING
         tok.Literal = l.readString()
+        return tok
     case '\'':
         tok.Type = STRING
         tok.Literal = l.readSingleQuoteString()
+        return tok
     case '`':
         tok.Type = TEMPLATE
         tok.Literal = l.readTemplateLiteral()
+        return tok
     case 0:
         tok.Type = EOF
         tok.Literal = ""
