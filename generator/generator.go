@@ -1,8 +1,8 @@
 package generator
 
 import (
-	"strings"
 	"ProjetGo/ast"
+	"strings"
 )
 
 // TargetLanguage représente les langages de sortie supportés
@@ -14,6 +14,9 @@ const (
 	Python     TargetLanguage = "python"
 	CSharp     TargetLanguage = "csharp"
 	Go         TargetLanguage = "go"
+	Rust       TargetLanguage = "rust"
+	Swift      TargetLanguage = "swift"
+	PHP        TargetLanguage = "php"
 )
 
 // CodeGenerator interface pour tous les générateurs de code
@@ -36,6 +39,12 @@ func Generate(statements []ast.Statement, targetLang TargetLanguage) string {
 		generator = &CSharpGenerator{}
 	case Go:
 		generator = &GoGenerator{}
+	case Rust:
+		generator = &RustGenerator{}
+	case Swift:
+		generator = &SwiftGenerator{}
+	case PHP:
+		generator = &PHPGenerator{}
 	default:
 		generator = &JavaScriptGenerator{} // défaut
 	}
@@ -267,14 +276,14 @@ func (jsg *JavaScriptGenerator) GenerateClass(cd *ast.ClassDeclaration) string {
 
 func (jsg *JavaScriptGenerator) GenerateFunction(fd *ast.FunctionDeclaration) string {
 	var sb strings.Builder
-	
+
 	if fd.IsAsync {
 		sb.WriteString("async ")
 	}
 	sb.WriteString("function ")
 	sb.WriteString(fd.Name)
 	sb.WriteString("(")
-	
+
 	// Paramètres
 	for i, param := range fd.Parameters {
 		if i > 0 {
@@ -282,22 +291,22 @@ func (jsg *JavaScriptGenerator) GenerateFunction(fd *ast.FunctionDeclaration) st
 		}
 		sb.WriteString(param.Name)
 	}
-	
+
 	sb.WriteString(") {\n")
-	
+
 	// Corps de la fonction
 	for _, stmt := range fd.Body {
 		sb.WriteString("    ")
 		sb.WriteString(jsg.GenerateStatement(stmt))
 	}
-	
+
 	sb.WriteString("}\n\n")
 	return sb.String()
 }
 
 func (jsg *JavaScriptGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
 	var sb strings.Builder
-	
+
 	if vd.IsConst {
 		sb.WriteString("const ")
 	} else {
@@ -305,7 +314,7 @@ func (jsg *JavaScriptGenerator) GenerateVariableDeclaration(vd *ast.VariableDecl
 	}
 	sb.WriteString(vd.Name)
 	sb.WriteString(" = ")
-	
+
 	if vd.Value != nil {
 		switch val := vd.Value.(type) {
 		case *ast.StringLiteral:
@@ -324,7 +333,7 @@ func (jsg *JavaScriptGenerator) GenerateVariableDeclaration(vd *ast.VariableDecl
 			sb.WriteString(jsg.GenerateExpression(val))
 		}
 	}
-	
+
 	sb.WriteString(";\n")
 	return sb.String()
 }
@@ -349,14 +358,14 @@ type JavaGenerator struct{}
 
 func (jg *JavaGenerator) Generate(statements []ast.Statement) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("public class GeneratedCode {\n")
-	
+
 	// Séparer les variables et les fonctions
 	var variables []ast.Statement
 	var functions []ast.Statement
 	var expressions []ast.Statement
-	
+
 	for _, stmt := range statements {
 		switch stmt.(type) {
 		case *ast.VariableDeclaration:
@@ -367,7 +376,7 @@ func (jg *JavaGenerator) Generate(statements []ast.Statement) string {
 			expressions = append(expressions, stmt)
 		}
 	}
-	
+
 	// Générer les fonctions d'abord
 	for _, stmt := range functions {
 		if s, ok := stmt.(*ast.FunctionDeclaration); ok {
@@ -375,10 +384,10 @@ func (jg *JavaGenerator) Generate(statements []ast.Statement) string {
 			sb.WriteString(jg.GenerateJavaFunction(s))
 		}
 	}
-	
+
 	// Méthode main
 	sb.WriteString("    public static void main(String[] args) {\n")
-	
+
 	// Variables dans main
 	for _, stmt := range variables {
 		if s, ok := stmt.(*ast.VariableDeclaration); ok {
@@ -386,15 +395,15 @@ func (jg *JavaGenerator) Generate(statements []ast.Statement) string {
 			sb.WriteString(jg.GenerateVariableDeclaration(s))
 		}
 	}
-	
-	// Expressions/appels dans main  
+
+	// Expressions/appels dans main
 	for _, stmt := range expressions {
 		if s, ok := stmt.(*ast.ExpressionStatement); ok {
 			sb.WriteString("        ")
 			sb.WriteString(jg.GenerateJavaExpressionStatement(s))
 		}
 	}
-	
+
 	sb.WriteString("    }\n")
 	sb.WriteString("}\n")
 	return sb.String()
@@ -402,9 +411,9 @@ func (jg *JavaGenerator) Generate(statements []ast.Statement) string {
 
 func (jg *JavaGenerator) GenerateJavaFunction(fd *ast.FunctionDeclaration) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("public static ")
-	
+
 	// Type de retour
 	if fd.ReturnType == "void" || fd.ReturnType == "" {
 		sb.WriteString("void ")
@@ -417,16 +426,16 @@ func (jg *JavaGenerator) GenerateJavaFunction(fd *ast.FunctionDeclaration) strin
 	} else {
 		sb.WriteString("Object ")
 	}
-	
+
 	sb.WriteString(fd.Name)
 	sb.WriteString("(")
-	
+
 	// Paramètres
 	for i, param := range fd.Parameters {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		
+
 		// Type du paramètre
 		if param.Type == "string" {
 			sb.WriteString("String ")
@@ -437,18 +446,18 @@ func (jg *JavaGenerator) GenerateJavaFunction(fd *ast.FunctionDeclaration) strin
 		} else {
 			sb.WriteString("Object ")
 		}
-		
+
 		sb.WriteString(param.Name)
 	}
-	
+
 	sb.WriteString(") {\n")
-	
+
 	// Corps de la fonction
 	for _, stmt := range fd.Body {
 		sb.WriteString("        ")
 		sb.WriteString(jg.GenerateJavaStatement(stmt))
 	}
-	
+
 	sb.WriteString("    }\n\n")
 	return sb.String()
 }
@@ -473,16 +482,16 @@ func (jg *JavaGenerator) GenerateJavaIfStatement(is *ast.IfStatement) string {
 	sb.WriteString("if (")
 	sb.WriteString(jg.GenerateExpression(is.Condition))
 	sb.WriteString(") {\n")
-	
+
 	if blockStmt, ok := is.ThenBranch.(*ast.BlockStatement); ok {
 		for _, stmt := range blockStmt.Statements {
 			sb.WriteString("            ")
 			sb.WriteString(jg.GenerateJavaStatement(stmt))
 		}
 	}
-	
+
 	sb.WriteString("        }")
-	
+
 	if is.ElseBranch != nil {
 		sb.WriteString(" else {\n")
 		if blockStmt, ok := is.ElseBranch.(*ast.BlockStatement); ok {
@@ -493,7 +502,7 @@ func (jg *JavaGenerator) GenerateJavaIfStatement(is *ast.IfStatement) string {
 		}
 		sb.WriteString("        }")
 	}
-	
+
 	sb.WriteString("\n")
 	return sb.String()
 }
@@ -518,18 +527,18 @@ func (jg *JavaGenerator) GenerateJavaExpressionStatement(es *ast.ExpressionState
 			}
 		}
 	}
-	
+
 	return jg.GenerateExpression(es.Expression) + ";\n"
 }
 
 func (jg *JavaGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
 	var sb strings.Builder
-	
+
 	// En Java, tout est final ou pas, pas de distinction const/let comme JS
 	if vd.IsConst {
 		sb.WriteString("final ")
 	}
-	
+
 	// Déterminer le type Java
 	switch vd.Value.(type) {
 	case *ast.StringLiteral:
@@ -547,10 +556,10 @@ func (jg *JavaGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration
 	default:
 		sb.WriteString("Object ")
 	}
-	
+
 	sb.WriteString(vd.Name)
 	sb.WriteString(" = ")
-	
+
 	if vd.Value != nil {
 		switch val := vd.Value.(type) {
 		case *ast.StringLiteral:
@@ -569,7 +578,7 @@ func (jg *JavaGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration
 			sb.WriteString(jg.GenerateExpression(val))
 		}
 	}
-	
+
 	sb.WriteString(";\n")
 	return sb.String()
 }
@@ -684,7 +693,7 @@ func (pg *PythonGenerator) Generate(statements []ast.Statement) string {
 	var variables []ast.Statement
 	var functions []ast.Statement
 	var expressions []ast.Statement
-	
+
 	for _, stmt := range statements {
 		switch stmt.(type) {
 		case *ast.VariableDeclaration:
@@ -695,21 +704,21 @@ func (pg *PythonGenerator) Generate(statements []ast.Statement) string {
 			expressions = append(expressions, stmt)
 		}
 	}
-	
+
 	// Générer les fonctions d'abord
 	for _, stmt := range functions {
 		if s, ok := stmt.(*ast.FunctionDeclaration); ok {
 			sb.WriteString(pg.GeneratePythonFunction(s))
 		}
 	}
-	
+
 	// Variables globales
 	for _, stmt := range variables {
 		if s, ok := stmt.(*ast.VariableDeclaration); ok {
 			sb.WriteString(pg.GenerateVariableDeclaration(s))
 		}
 	}
-	
+
 	// Main execution
 	if len(expressions) > 0 {
 		sb.WriteString("\n# Main execution\n")
@@ -725,11 +734,11 @@ func (pg *PythonGenerator) Generate(statements []ast.Statement) string {
 
 func (pg *PythonGenerator) GeneratePythonFunction(fd *ast.FunctionDeclaration) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("def ")
 	sb.WriteString(fd.Name)
 	sb.WriteString("(")
-	
+
 	// Paramètres
 	for i, param := range fd.Parameters {
 		if i > 0 {
@@ -737,9 +746,9 @@ func (pg *PythonGenerator) GeneratePythonFunction(fd *ast.FunctionDeclaration) s
 		}
 		sb.WriteString(param.Name)
 	}
-	
+
 	sb.WriteString("):\n")
-	
+
 	// Corps de la fonction
 	if len(fd.Body) == 0 {
 		sb.WriteString("    pass\n")
@@ -749,7 +758,7 @@ func (pg *PythonGenerator) GeneratePythonFunction(fd *ast.FunctionDeclaration) s
 			sb.WriteString(pg.GeneratePythonStatement(stmt))
 		}
 	}
-	
+
 	sb.WriteString("\n")
 	return sb.String()
 }
@@ -774,14 +783,14 @@ func (pg *PythonGenerator) GeneratePythonIfStatement(is *ast.IfStatement) string
 	sb.WriteString("if ")
 	sb.WriteString(pg.GeneratePythonExpression(is.Condition))
 	sb.WriteString(":\n")
-	
+
 	if blockStmt, ok := is.ThenBranch.(*ast.BlockStatement); ok {
 		for _, stmt := range blockStmt.Statements {
 			sb.WriteString("        ")
 			sb.WriteString(pg.GeneratePythonStatement(stmt))
 		}
 	}
-	
+
 	if is.ElseBranch != nil {
 		sb.WriteString("    else:\n")
 		if blockStmt, ok := is.ElseBranch.(*ast.BlockStatement); ok {
@@ -791,7 +800,7 @@ func (pg *PythonGenerator) GeneratePythonIfStatement(is *ast.IfStatement) string
 			}
 		}
 	}
-	
+
 	return sb.String()
 }
 
@@ -844,21 +853,21 @@ func (pg *PythonGenerator) GeneratePythonExpressionStatement(es *ast.ExpressionS
 			}
 		}
 	}
-	
+
 	return pg.GeneratePythonExpression(es.Expression) + "\n"
 }
 
 func (pg *PythonGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
 	var sb strings.Builder
-	
+
 	// Python n'a pas de const, on peut utiliser un commentaire ou une convention
 	if vd.IsConst {
 		sb.WriteString("# Constant\n")
 	}
-	
+
 	sb.WriteString(vd.Name)
 	sb.WriteString(" = ")
-	
+
 	switch val := vd.Value.(type) {
 	case *ast.StringLiteral:
 		sb.WriteString(pg.GenerateStringLiteral(val))
@@ -875,7 +884,7 @@ func (pg *PythonGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclarati
 	default:
 		sb.WriteString(pg.GeneratePythonExpression(val))
 	}
-	
+
 	sb.WriteString("\n")
 	return sb.String()
 }
@@ -957,12 +966,12 @@ type CSharpGenerator struct{}
 
 func (csg *CSharpGenerator) Generate(statements []ast.Statement) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("using System;\n\n")
 	sb.WriteString("namespace GeneratedCode\n{\n")
 	sb.WriteString("    class Program\n    {\n")
 	sb.WriteString("        static void Main(string[] args)\n        {\n")
-	
+
 	for _, stmt := range statements {
 		switch s := stmt.(type) {
 		case *ast.VariableDeclaration:
@@ -970,14 +979,14 @@ func (csg *CSharpGenerator) Generate(statements []ast.Statement) string {
 			sb.WriteString(csg.GenerateVariableDeclaration(s))
 		}
 	}
-	
+
 	sb.WriteString("        }\n    }\n}\n")
 	return sb.String()
 }
 
 func (csg *CSharpGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
 	var sb strings.Builder
-	
+
 	// Déterminer le type C#
 	switch vd.Value.(type) {
 	case *ast.StringLiteral:
@@ -989,10 +998,10 @@ func (csg *CSharpGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclarat
 	default:
 		sb.WriteString("var ")
 	}
-	
+
 	sb.WriteString(vd.Name)
 	sb.WriteString(" = ")
-	
+
 	switch val := vd.Value.(type) {
 	case *ast.StringLiteral:
 		sb.WriteString(csg.GenerateStringLiteral(val))
@@ -1001,7 +1010,7 @@ func (csg *CSharpGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclarat
 	case *ast.BooleanLiteral:
 		sb.WriteString(csg.GenerateBooleanLiteral(val))
 	}
-	
+
 	sb.WriteString(";\n")
 	return sb.String()
 }
@@ -1026,10 +1035,10 @@ type GoGenerator struct{}
 
 func (gg *GoGenerator) Generate(statements []ast.Statement) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("package main\n\n")
 	sb.WriteString("func main() {\n")
-	
+
 	for _, stmt := range statements {
 		switch s := stmt.(type) {
 		case *ast.VariableDeclaration:
@@ -1037,23 +1046,23 @@ func (gg *GoGenerator) Generate(statements []ast.Statement) string {
 			sb.WriteString(gg.GenerateVariableDeclaration(s))
 		}
 	}
-	
+
 	sb.WriteString("}\n")
 	return sb.String()
 }
 
 func (gg *GoGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
 	var sb strings.Builder
-	
+
 	if vd.IsConst {
 		sb.WriteString("const ")
 	} else {
 		sb.WriteString("var ")
 	}
-	
+
 	sb.WriteString(vd.Name)
 	sb.WriteString(" ")
-	
+
 	// Déterminer le type Go
 	switch vd.Value.(type) {
 	case *ast.StringLiteral:
@@ -1065,9 +1074,9 @@ func (gg *GoGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) 
 	default:
 		sb.WriteString("interface{}")
 	}
-	
+
 	sb.WriteString(" = ")
-	
+
 	switch val := vd.Value.(type) {
 	case *ast.StringLiteral:
 		sb.WriteString(gg.GenerateStringLiteral(val))
@@ -1076,7 +1085,7 @@ func (gg *GoGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) 
 	case *ast.BooleanLiteral:
 		sb.WriteString(gg.GenerateBooleanLiteral(val))
 	}
-	
+
 	sb.WriteString("\n")
 	return sb.String()
 }
@@ -1090,6 +1099,203 @@ func (gg *GoGenerator) GenerateNumberLiteral(nl *ast.NumberLiteral) string {
 }
 
 func (gg *GoGenerator) GenerateBooleanLiteral(bl *ast.BooleanLiteral) string {
+	if bl.Value {
+		return "true"
+	}
+	return "false"
+}
+
+// RustGenerator génère du code Rust
+type RustGenerator struct{}
+
+func (rg *RustGenerator) Generate(statements []ast.Statement) string {
+	var sb strings.Builder
+
+	sb.WriteString("fn main() {\n")
+
+	for _, stmt := range statements {
+		switch s := stmt.(type) {
+		case *ast.VariableDeclaration:
+			sb.WriteString("    ")
+			sb.WriteString(rg.GenerateVariableDeclaration(s))
+		}
+	}
+
+	sb.WriteString("}\n")
+	return sb.String()
+}
+
+func (rg *RustGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
+	var sb strings.Builder
+
+	if vd.IsConst {
+		sb.WriteString("const ")
+	} else {
+		sb.WriteString("let ")
+	}
+
+	sb.WriteString(vd.Name)
+	sb.WriteString(": ")
+
+	// Déterminer le type Rust
+	switch vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString("&str")
+	case *ast.NumberLiteral:
+		sb.WriteString("i32")
+	case *ast.BooleanLiteral:
+		sb.WriteString("bool")
+	default:
+		sb.WriteString("_")
+	}
+
+	sb.WriteString(" = ")
+
+	switch val := vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString(rg.GenerateStringLiteral(val))
+	case *ast.NumberLiteral:
+		sb.WriteString(rg.GenerateNumberLiteral(val))
+	case *ast.BooleanLiteral:
+		sb.WriteString(rg.GenerateBooleanLiteral(val))
+	}
+
+	sb.WriteString(";\n")
+	return sb.String()
+}
+
+func (rg *RustGenerator) GenerateStringLiteral(sl *ast.StringLiteral) string {
+	return "\"" + sl.Value + "\""
+}
+
+func (rg *RustGenerator) GenerateNumberLiteral(nl *ast.NumberLiteral) string {
+	return nl.Value
+}
+
+func (rg *RustGenerator) GenerateBooleanLiteral(bl *ast.BooleanLiteral) string {
+	if bl.Value {
+		return "true"
+	}
+	return "false"
+}
+
+// SwiftGenerator génère du code Swift
+type SwiftGenerator struct{}
+
+func (sg *SwiftGenerator) Generate(statements []ast.Statement) string {
+	var sb strings.Builder
+
+	for _, stmt := range statements {
+		switch s := stmt.(type) {
+		case *ast.VariableDeclaration:
+			sb.WriteString(sg.GenerateVariableDeclaration(s))
+		}
+	}
+
+	return sb.String()
+}
+
+func (sg *SwiftGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
+	var sb strings.Builder
+
+	if vd.IsConst {
+		sb.WriteString("let ")
+	} else {
+		sb.WriteString("var ")
+	}
+
+	sb.WriteString(vd.Name)
+	sb.WriteString(": ")
+
+	// Déterminer le type Swift
+	switch vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString("String")
+	case *ast.NumberLiteral:
+		sb.WriteString("Int")
+	case *ast.BooleanLiteral:
+		sb.WriteString("Bool")
+	default:
+		sb.WriteString("Any")
+	}
+
+	sb.WriteString(" = ")
+
+	switch val := vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString(sg.GenerateStringLiteral(val))
+	case *ast.NumberLiteral:
+		sb.WriteString(sg.GenerateNumberLiteral(val))
+	case *ast.BooleanLiteral:
+		sb.WriteString(sg.GenerateBooleanLiteral(val))
+	}
+
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func (sg *SwiftGenerator) GenerateStringLiteral(sl *ast.StringLiteral) string {
+	return "\"" + sl.Value + "\""
+}
+
+func (sg *SwiftGenerator) GenerateNumberLiteral(nl *ast.NumberLiteral) string {
+	return nl.Value
+}
+
+func (sg *SwiftGenerator) GenerateBooleanLiteral(bl *ast.BooleanLiteral) string {
+	if bl.Value {
+		return "true"
+	}
+	return "false"
+}
+
+// PHPGenerator génère du code PHP
+type PHPGenerator struct{}
+
+func (pg *PHPGenerator) Generate(statements []ast.Statement) string {
+	var sb strings.Builder
+
+	sb.WriteString("<?php\n\n")
+
+	for _, stmt := range statements {
+		switch s := stmt.(type) {
+		case *ast.VariableDeclaration:
+			sb.WriteString(pg.GenerateVariableDeclaration(s))
+		}
+	}
+
+	return sb.String()
+}
+
+func (pg *PHPGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
+	var sb strings.Builder
+
+	sb.WriteString("$")
+	sb.WriteString(vd.Name)
+	sb.WriteString(" = ")
+
+	switch val := vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString(pg.GenerateStringLiteral(val))
+	case *ast.NumberLiteral:
+		sb.WriteString(pg.GenerateNumberLiteral(val))
+	case *ast.BooleanLiteral:
+		sb.WriteString(pg.GenerateBooleanLiteral(val))
+	}
+
+	sb.WriteString(";\n")
+	return sb.String()
+}
+
+func (pg *PHPGenerator) GenerateStringLiteral(sl *ast.StringLiteral) string {
+	return "\"" + sl.Value + "\""
+}
+
+func (pg *PHPGenerator) GenerateNumberLiteral(nl *ast.NumberLiteral) string {
+	return nl.Value
+}
+
+func (pg *PHPGenerator) GenerateBooleanLiteral(bl *ast.BooleanLiteral) string {
 	if bl.Value {
 		return "true"
 	}
