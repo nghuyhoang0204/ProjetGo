@@ -2,37 +2,153 @@ package generator
 
 import (
 	"ProjetGo/ast"
-	"ProjetGo/lexer"
-	"ProjetGo/parser"
-	"fmt"
 	"strings"
 )
 
-// TypeScriptToJavaScriptTranspiler transpile TypeScript vers JavaScript
-type TypeScriptToJavaScriptTranspiler struct{}
+// TargetLanguage représente les langages de sortie supportés
+type TargetLanguage string
 
-// Generate transpile un programme TypeScript vers JavaScript
-func (t *TypeScriptToJavaScriptTranspiler) Generate(program *ast.Program) string {
-	if program == nil {
-		return ""
+const (
+	JavaScript TargetLanguage = "javascript"
+	Java       TargetLanguage = "java"
+	Python     TargetLanguage = "python"
+	CSharp     TargetLanguage = "csharp"
+	Go         TargetLanguage = "go"
+	Rust       TargetLanguage = "rust"
+	Swift      TargetLanguage = "swift"
+	PHP        TargetLanguage = "php"
+)
+
+// CodeGenerator interface pour tous les générateurs de code
+type CodeGenerator interface {
+	Generate(statements []ast.Statement) string
+}
+
+// Generate génère du code dans le langage cible spécifié
+func Generate(statements []ast.Statement, targetLang TargetLanguage) string {
+	var generator CodeGenerator
+
+	switch targetLang {
+	case JavaScript:
+		generator = &JavaScriptGenerator{}
+	case Java:
+		generator = &JavaGenerator{}
+	case Python:
+		generator = &PythonGenerator{}
+	case CSharp:
+		generator = &CSharpGenerator{}
+	case Go:
+		generator = &GoGenerator{}
+	case Rust:
+		generator = &RustGenerator{}
+	case Swift:
+		generator = &SwiftGenerator{}
+	case PHP:
+		generator = &PHPGenerator{}
+	default:
+		generator = &JavaScriptGenerator{} // défaut
 	}
 
-	var result strings.Builder
-	
-	for _, statement := range program.Statements {
-		jsCode := t.generateStatement(statement)
-		if jsCode != "" {
-			result.WriteString(jsCode)
-			result.WriteString("\n")
+	return generator.Generate(statements)
+}
+
+// JavaScriptGenerator génère du code JavaScript
+type JavaScriptGenerator struct{}
+
+func (jsg *JavaScriptGenerator) Generate(statements []ast.Statement) string {
+	var sb strings.Builder
+
+	for _, stmt := range statements {
+		switch s := stmt.(type) {
+		case *ast.VariableDeclaration:
+			sb.WriteString(jsg.GenerateVariableDeclaration(s))
+		case *ast.FunctionDeclaration:
+			sb.WriteString(jsg.GenerateFunction(s))
+		case *ast.IfStatement:
+			sb.WriteString(jsg.GenerateIfStatement(s))
+		case *ast.ForStatement:
+			sb.WriteString(jsg.GenerateForStatement(s))
+		case *ast.WhileStatement:
+			sb.WriteString(jsg.GenerateWhileStatement(s))
+		case *ast.ReturnStatement:
+			sb.WriteString(jsg.GenerateReturnStatement(s))
+		case *ast.ExpressionStatement:
+			sb.WriteString(jsg.GenerateExpressionStatement(s))
+		case *ast.TypeAlias:
+			sb.WriteString(jsg.GenerateTypeAlias(s))
+		case *ast.Interface:
+			sb.WriteString(jsg.GenerateInterface(s))
+		case *ast.ClassDeclaration:
+			sb.WriteString(jsg.GenerateClass(s))
 		}
 	}
 
-	return result.String()
+	return sb.String()
 }
 
-// generateStatement génère du JavaScript pour un statement
-func (t *TypeScriptToJavaScriptTranspiler) generateStatement(stmt ast.Statement) string {
-	switch node := stmt.(type) {
+func (jsg *JavaScriptGenerator) GenerateIfStatement(is *ast.IfStatement) string {
+	var sb strings.Builder
+	sb.WriteString("if (")
+	sb.WriteString(jsg.GenerateExpression(is.Condition))
+	sb.WriteString(") ")
+	sb.WriteString(jsg.GenerateStatement(is.ThenBranch))
+	if is.ElseBranch != nil {
+		sb.WriteString(" else ")
+		sb.WriteString(jsg.GenerateStatement(is.ElseBranch))
+	}
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func (jsg *JavaScriptGenerator) GenerateForStatement(fs *ast.ForStatement) string {
+	var sb strings.Builder
+	sb.WriteString("for (")
+	if fs.Init != nil {
+		sb.WriteString(strings.TrimSuffix(jsg.GenerateStatement(fs.Init), "\n"))
+	}
+	sb.WriteString("; ")
+	if fs.Condition != nil {
+		sb.WriteString(jsg.GenerateExpression(fs.Condition))
+	}
+	sb.WriteString("; ")
+	if fs.Update != nil {
+		sb.WriteString(strings.TrimSuffix(jsg.GenerateStatement(fs.Update), "\n"))
+	}
+	sb.WriteString(") ")
+	sb.WriteString(jsg.GenerateStatement(fs.Body))
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func (jsg *JavaScriptGenerator) GenerateWhileStatement(ws *ast.WhileStatement) string {
+	var sb strings.Builder
+	sb.WriteString("while (")
+	sb.WriteString(jsg.GenerateExpression(ws.Condition))
+	sb.WriteString(") ")
+	sb.WriteString(jsg.GenerateStatement(ws.Body))
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func (jsg *JavaScriptGenerator) GenerateReturnStatement(rs *ast.ReturnStatement) string {
+	var sb strings.Builder
+	sb.WriteString("return")
+	if rs.Value != nil {
+		sb.WriteString(" ")
+		sb.WriteString(jsg.GenerateExpression(rs.Value))
+	}
+	sb.WriteString(";\n")
+	return sb.String()
+}
+
+func (jsg *JavaScriptGenerator) GenerateExpressionStatement(es *ast.ExpressionStatement) string {
+	return jsg.GenerateExpression(es.Expression) + ";\n"
+}
+
+func (jsg *JavaScriptGenerator) GenerateStatement(stmt ast.Statement) string {
+	switch s := stmt.(type) {
+	case *ast.BlockStatement:
+		return jsg.GenerateBlockStatement(s)
 	case *ast.VariableDeclaration:
 		return t.generateVariableDeclaration(node)
 	case *ast.FunctionDeclaration:
@@ -115,142 +231,313 @@ func (t *TypeScriptToJavaScriptTranspiler) generateVariableDeclaration(node *ast
 	return result.String()
 }
 
-func (t *TypeScriptToJavaScriptTranspiler) generateFunctionDeclaration(node *ast.FunctionDeclaration) string {
-	var result strings.Builder
-
-	result.WriteString("function ")
-	result.WriteString(node.Name)
-	result.WriteString("(")
-
-	// Paramètres (sans les types TypeScript)
-	for i, param := range node.Parameters {
+func (jsg *JavaScriptGenerator) GenerateFunction(fd *ast.FunctionDeclaration) string {
+	var sb strings.Builder
+	
+	if fd.IsAsync {
+		sb.WriteString("async ")
+	}
+	sb.WriteString("function ")
+	sb.WriteString(fd.Name)
+	sb.WriteString("(")
+	
+	// Paramètres
+	for i, param := range fd.Parameters {
 		if i > 0 {
 			result.WriteString(", ")
 		}
-		result.WriteString(param.Name)
-		// Ignorer le type: param.Type
+		sb.WriteString(param.Name)
 	}
-
-	result.WriteString(")")
-	// Ignorer le type de retour: node.ReturnType
-
-	result.WriteString(" ")
-	result.WriteString(t.generateBlockStatement(node.Body))
-
-	return result.String()
+	
+	sb.WriteString(") {\n")
+	
+	// Corps de la fonction
+	for _, stmt := range fd.Body {
+		sb.WriteString("    ")
+		sb.WriteString(jsg.GenerateStatement(stmt))
+	}
+	
+	sb.WriteString("}\n\n")
+	return sb.String()
 }
 
-func (t *TypeScriptToJavaScriptTranspiler) generateIfStatement(node *ast.IfStatement) string {
-	var result strings.Builder
-
-	result.WriteString("if (")
-	result.WriteString(t.generateExpression(node.Condition))
-	result.WriteString(") ")
-
-	if blockStmt, ok := node.ThenBranch.(*ast.BlockStatement); ok {
-		result.WriteString(t.generateBlockStatement(blockStmt))
+func (jsg *JavaScriptGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
+	var sb strings.Builder
+	
+	if vd.IsConst {
+		sb.WriteString("const ")
 	} else {
-		result.WriteString(t.generateStatement(node.ThenBranch))
+		sb.WriteString("let ")
 	}
+	sb.WriteString(vd.Name)
+	sb.WriteString(" = ")
+	
+	if vd.Value != nil {
+		switch val := vd.Value.(type) {
+		case *ast.StringLiteral:
+			sb.WriteString(jsg.GenerateStringLiteral(val))
+		case *ast.NumberLiteral:
+			sb.WriteString(jsg.GenerateNumberLiteral(val))
+		case *ast.BooleanLiteral:
+			sb.WriteString(jsg.GenerateBooleanLiteral(val))
+		case *ast.ArrayLiteral:
+			sb.WriteString(jsg.GenerateArrayLiteral(val))
+		case *ast.ObjectLiteral:
+			sb.WriteString(jsg.GenerateObjectLiteral(val))
+		case *ast.TemplateLiteral:
+			sb.WriteString(jsg.GenerateTemplateLiteral(val))
+		default:
+			sb.WriteString(jsg.GenerateExpression(val))
+		}
+	}
+	
+	sb.WriteString(";\n")
+	return sb.String()
+}
 
-	if node.ElseBranch != nil {
-		result.WriteString(" else ")
-		if blockStmt, ok := node.ElseBranch.(*ast.BlockStatement); ok {
-			result.WriteString(t.generateBlockStatement(blockStmt))
+func (jsg *JavaScriptGenerator) GenerateStringLiteral(sl *ast.StringLiteral) string {
+	return "\"" + sl.Value + "\""
+}
+
+func (jsg *JavaScriptGenerator) GenerateNumberLiteral(nl *ast.NumberLiteral) string {
+	return nl.Value
+}
+
+func (jsg *JavaScriptGenerator) GenerateBooleanLiteral(bl *ast.BooleanLiteral) string {
+	if bl.Value {
+		return "true"
+	}
+	return "false"
+}
+
+// JavaGenerator génère du code Java
+type JavaGenerator struct{}
+
+func (jg *JavaGenerator) Generate(statements []ast.Statement) string {
+	var sb strings.Builder
+	
+	sb.WriteString("public class GeneratedCode {\n")
+	
+	// Séparer les variables et les fonctions
+	var variables []ast.Statement
+	var functions []ast.Statement
+	var expressions []ast.Statement
+	
+	for _, stmt := range statements {
+		switch stmt.(type) {
+		case *ast.VariableDeclaration:
+			variables = append(variables, stmt)
+		case *ast.FunctionDeclaration:
+			functions = append(functions, stmt)
+		default:
+			expressions = append(expressions, stmt)
+		}
+	}
+	
+	// Générer les fonctions d'abord
+	for _, stmt := range functions {
+		if s, ok := stmt.(*ast.FunctionDeclaration); ok {
+			sb.WriteString("    ")
+			sb.WriteString(jg.GenerateJavaFunction(s))
+		}
+	}
+	
+	// Méthode main
+	sb.WriteString("    public static void main(String[] args) {\n")
+	
+	// Variables dans main
+	for _, stmt := range variables {
+		if s, ok := stmt.(*ast.VariableDeclaration); ok {
+			sb.WriteString("        ")
+			sb.WriteString(jg.GenerateVariableDeclaration(s))
+		}
+	}
+	
+	// Expressions/appels dans main  
+	for _, stmt := range expressions {
+		if s, ok := stmt.(*ast.ExpressionStatement); ok {
+			sb.WriteString("        ")
+			sb.WriteString(jg.GenerateJavaExpressionStatement(s))
+		}
+	}
+	
+	sb.WriteString("    }\n")
+	sb.WriteString("}\n")
+	return sb.String()
+}
+
+func (jg *JavaGenerator) GenerateJavaFunction(fd *ast.FunctionDeclaration) string {
+	var sb strings.Builder
+	
+	sb.WriteString("public static ")
+	
+	// Type de retour
+	if fd.ReturnType == "void" || fd.ReturnType == "" {
+		sb.WriteString("void ")
+	} else if fd.ReturnType == "string" {
+		sb.WriteString("String ")
+	} else if fd.ReturnType == "number" {
+		sb.WriteString("int ")
+	} else if fd.ReturnType == "boolean" {
+		sb.WriteString("boolean ")
+	} else {
+		sb.WriteString("Object ")
+	}
+	
+	sb.WriteString(fd.Name)
+	sb.WriteString("(")
+	
+	// Paramètres
+	for i, param := range fd.Parameters {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		
+		// Type du paramètre
+		if param.Type == "string" {
+			sb.WriteString("String ")
+		} else if param.Type == "number" {
+			sb.WriteString("int ")
+		} else if param.Type == "boolean" {
+			sb.WriteString("boolean ")
 		} else {
-			result.WriteString(t.generateStatement(node.ElseBranch))
+			sb.WriteString("Object ")
+		}
+		
+		sb.WriteString(param.Name)
+	}
+	
+	sb.WriteString(") {\n")
+	
+	// Corps de la fonction
+	for _, stmt := range fd.Body {
+		sb.WriteString("        ")
+		sb.WriteString(jg.GenerateJavaStatement(stmt))
+	}
+	
+	sb.WriteString("    }\n\n")
+	return sb.String()
+}
+
+func (jg *JavaGenerator) GenerateJavaStatement(stmt ast.Statement) string {
+	switch s := stmt.(type) {
+	case *ast.ReturnStatement:
+		if s.Value != nil {
+			return "return " + jg.GenerateExpression(s.Value) + ";\n"
+		}
+		return "return;\n"
+	case *ast.IfStatement:
+		return jg.GenerateJavaIfStatement(s)
+	case *ast.VariableDeclaration:
+		return jg.GenerateVariableDeclaration(s)
+	}
+	return ""
+}
+
+func (jg *JavaGenerator) GenerateJavaIfStatement(is *ast.IfStatement) string {
+	var sb strings.Builder
+	sb.WriteString("if (")
+	sb.WriteString(jg.GenerateExpression(is.Condition))
+	sb.WriteString(") {\n")
+	
+	if blockStmt, ok := is.ThenBranch.(*ast.BlockStatement); ok {
+		for _, stmt := range blockStmt.Statements {
+			sb.WriteString("            ")
+			sb.WriteString(jg.GenerateJavaStatement(stmt))
 		}
 	}
-
-	return result.String()
+	
+	sb.WriteString("        }")
+	
+	if is.ElseBranch != nil {
+		sb.WriteString(" else {\n")
+		if blockStmt, ok := is.ElseBranch.(*ast.BlockStatement); ok {
+			for _, stmt := range blockStmt.Statements {
+				sb.WriteString("            ")
+				sb.WriteString(jg.GenerateJavaStatement(stmt))
+			}
+		}
+		sb.WriteString("        }")
+	}
+	
+	sb.WriteString("\n")
+	return sb.String()
 }
 
-func (t *TypeScriptToJavaScriptTranspiler) generateForStatement(node *ast.ForStatement) string {
-	var result strings.Builder
-
-	result.WriteString("for (")
-
-	if node.Init != nil {
-		initCode := t.generateStatement(node.Init)
-		// Supprimer le point-virgule final pour l'init
-		initCode = strings.TrimSuffix(initCode, ";")
-		result.WriteString(initCode)
-	}
-	result.WriteString("; ")
-
-	if node.Condition != nil {
-		result.WriteString(t.generateExpression(node.Condition))
-	}
-	result.WriteString("; ")
-
-	if node.Update != nil {
-		updateCode := t.generateStatement(node.Update)
-		// Supprimer le point-virgule final pour l'update
-		updateCode = strings.TrimSuffix(updateCode, ";")
-		result.WriteString(updateCode)
-	}
-
-	result.WriteString(") ")
-
-	if blockStmt, ok := node.Body.(*ast.BlockStatement); ok {
-		result.WriteString(t.generateBlockStatement(blockStmt))
-	} else {
-		result.WriteString(t.generateStatement(node.Body))
-	}
-
-	return result.String()
-}
-
-func (t *TypeScriptToJavaScriptTranspiler) generateWhileStatement(node *ast.WhileStatement) string {
-	var result strings.Builder
-
-	result.WriteString("while (")
-	result.WriteString(t.generateExpression(node.Condition))
-	result.WriteString(") ")
-
-	if blockStmt, ok := node.Body.(*ast.BlockStatement); ok {
-		result.WriteString(t.generateBlockStatement(blockStmt))
-	} else {
-		result.WriteString(t.generateStatement(node.Body))
-	}
-
-	return result.String()
-}
-
-func (t *TypeScriptToJavaScriptTranspiler) generateBlockStatement(node *ast.BlockStatement) string {
-	var result strings.Builder
-
-	result.WriteString("{\n")
-
-	for _, statement := range node.Statements {
-		jsCode := t.generateStatement(statement)
-		if jsCode != "" {
-			result.WriteString("    ") // Indentation
-			result.WriteString(jsCode)
-			result.WriteString("\n")
+func (jg *JavaGenerator) GenerateJavaExpressionStatement(es *ast.ExpressionStatement) string {
+	// Convertir console.log en System.out.println
+	if callExpr, ok := es.Expression.(*ast.CallExpression); ok {
+		if dotExpr, ok := callExpr.Function.(*ast.DotExpression); ok {
+			if ident, ok := dotExpr.Object.(*ast.Identifier); ok {
+				if ident.Value == "console" && dotExpr.Property == "log" {
+					var sb strings.Builder
+					sb.WriteString("System.out.println(")
+					for i, arg := range callExpr.Arguments {
+						if i > 0 {
+							sb.WriteString(" + \", \" + ")
+						}
+						sb.WriteString(jg.GenerateExpression(arg))
+					}
+					sb.WriteString(");\n")
+					return sb.String()
+				}
+			}
 		}
 	}
-
-	result.WriteString("}")
-	return result.String()
+	
+	return jg.GenerateExpression(es.Expression) + ";\n"
 }
 
-func (t *TypeScriptToJavaScriptTranspiler) generateReturnStatement(node *ast.ReturnStatement) string {
-	var result strings.Builder
-
-	result.WriteString("return")
-
-	if node.Value != nil {
-		result.WriteString(" ")
-		result.WriteString(t.generateExpression(node.Value))
+func (jg *JavaGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
+	var sb strings.Builder
+	
+	// En Java, tout est final ou pas, pas de distinction const/let comme JS
+	if vd.IsConst {
+		sb.WriteString("final ")
 	}
-
-	result.WriteString(";")
-	return result.String()
-}
-
-func (t *TypeScriptToJavaScriptTranspiler) generateExpressionStatement(node *ast.ExpressionStatement) string {
-	return t.generateExpression(node.Expression) + ";"
+	
+	// Déterminer le type Java
+	switch vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString("String ")
+	case *ast.NumberLiteral:
+		sb.WriteString("int ") // Simplifié, pourrait être double/long
+	case *ast.BooleanLiteral:
+		sb.WriteString("boolean ")
+	case *ast.ArrayLiteral:
+		sb.WriteString("int[] ") // Simplifié pour les arrays de nombres
+	case *ast.ObjectLiteral:
+		sb.WriteString("java.util.HashMap<String, Object> ")
+	case *ast.TemplateLiteral:
+		sb.WriteString("String ")
+	default:
+		sb.WriteString("Object ")
+	}
+	
+	sb.WriteString(vd.Name)
+	sb.WriteString(" = ")
+	
+	if vd.Value != nil {
+		switch val := vd.Value.(type) {
+		case *ast.StringLiteral:
+			sb.WriteString(jg.GenerateStringLiteral(val))
+		case *ast.NumberLiteral:
+			sb.WriteString(jg.GenerateNumberLiteral(val))
+		case *ast.BooleanLiteral:
+			sb.WriteString(jg.GenerateBooleanLiteral(val))
+		case *ast.ArrayLiteral:
+			sb.WriteString(jg.GenerateArrayLiteral(val))
+		case *ast.ObjectLiteral:
+			sb.WriteString(jg.GenerateObjectLiteral(val))
+		case *ast.TemplateLiteral:
+			sb.WriteString(jg.GenerateTemplateLiteral(val))
+		default:
+			sb.WriteString(jg.GenerateExpression(val))
+		}
+	}
+	
+	sb.WriteString(";\n")
+	return sb.String()
 }
 
 func (t *TypeScriptToJavaScriptTranspiler) generateAssignmentStatement(node *ast.AssignmentStatement) string {
@@ -312,74 +599,216 @@ func (t *TypeScriptToJavaScriptTranspiler) generateObjectLiteral(node *ast.Objec
 	return result.String()
 }
 
-func (t *TypeScriptToJavaScriptTranspiler) generateCallExpression(node *ast.CallExpression) string {
-	var result strings.Builder
+func (pg *PythonGenerator) Generate(statements []ast.Statement) string {
+	var sb strings.Builder
 
-	result.WriteString(t.generateExpression(node.Function))
-	result.WriteString("(")
+	// Séparer les variables et les fonctions
+	var variables []ast.Statement
+	var functions []ast.Statement
+	var expressions []ast.Statement
+	
+	for _, stmt := range statements {
+		switch stmt.(type) {
+		case *ast.VariableDeclaration:
+			variables = append(variables, stmt)
+		case *ast.FunctionDeclaration:
+			functions = append(functions, stmt)
+		default:
+			expressions = append(expressions, stmt)
+		}
+	}
+	
+	// Générer les fonctions d'abord
+	for _, stmt := range functions {
+		if s, ok := stmt.(*ast.FunctionDeclaration); ok {
+			sb.WriteString(pg.GeneratePythonFunction(s))
+		}
+	}
+	
+	// Variables globales
+	for _, stmt := range variables {
+		if s, ok := stmt.(*ast.VariableDeclaration); ok {
+			sb.WriteString(pg.GenerateVariableDeclaration(s))
+		}
+	}
+	
+	// Main execution
+	if len(expressions) > 0 {
+		sb.WriteString("\n# Main execution\n")
+		for _, stmt := range expressions {
+			if s, ok := stmt.(*ast.ExpressionStatement); ok {
+				sb.WriteString(pg.GeneratePythonExpressionStatement(s))
+			}
+		}
+	}
 
-	for i, arg := range node.Arguments {
+	return sb.String()
+}
+
+func (pg *PythonGenerator) GeneratePythonFunction(fd *ast.FunctionDeclaration) string {
+	var sb strings.Builder
+	
+	sb.WriteString("def ")
+	sb.WriteString(fd.Name)
+	sb.WriteString("(")
+	
+	// Paramètres
+	for i, param := range fd.Parameters {
 		if i > 0 {
 			result.WriteString(", ")
 		}
 		result.WriteString(t.generateExpression(arg))
 	}
-
-	result.WriteString(")")
-	return result.String()
-}
-
-func (t *TypeScriptToJavaScriptTranspiler) generateMemberExpression(node *ast.MemberExpression) string {
-	var result strings.Builder
-
-	result.WriteString(t.generateExpression(node.Object))
-
-	if node.Computed {
-		result.WriteString("[")
-		result.WriteString(t.generateExpression(node.Property))
-		result.WriteString("]")
+	
+	sb.WriteString("):\n")
+	
+	// Corps de la fonction
+	if len(fd.Body) == 0 {
+		sb.WriteString("    pass\n")
 	} else {
-		result.WriteString(".")
-		result.WriteString(t.generateExpression(node.Property))
+		for _, stmt := range fd.Body {
+			sb.WriteString("    ")
+			sb.WriteString(pg.GeneratePythonStatement(stmt))
+		}
 	}
-
-	return result.String()
-}
-
-func (t *TypeScriptToJavaScriptTranspiler) generateInfixExpression(node *ast.InfixExpression) string {
-	var result strings.Builder
-
-	// Gérer les expressions préfixes (comme -x, !x)
-	if node.Left == nil {
-		result.WriteString(node.Operator)
-		result.WriteString(t.generateExpression(node.Right))
-		return result.String()
-	}
-
-	// Expression infixe normale
-	result.WriteString(t.generateExpression(node.Left))
-	result.WriteString(" ")
-	result.WriteString(node.Operator)
-	result.WriteString(" ")
-	result.WriteString(t.generateExpression(node.Right))
-
-	return result.String()
-}
-
-func (t *TypeScriptToJavaScriptTranspiler) generateTemplateLiteral(node *ast.TemplateLiteral) string {
-	var result strings.Builder
-
-	result.WriteString("`")
 	
-	for _, part := range node.Parts {
-		if strLit, ok := part.(*ast.StringLiteral); ok {
-			// Partie texte
-			result.WriteString(strLit.Value)
-		} else {
-			// Expression interpolée
-			result.WriteString("${")
-			result.WriteString(t.generateExpression(part))
-			result.WriteString("}")
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func (pg *PythonGenerator) GeneratePythonStatement(stmt ast.Statement) string {
+	switch s := stmt.(type) {
+	case *ast.ReturnStatement:
+		if s.Value != nil {
+			return "return " + pg.GeneratePythonExpression(s.Value) + "\n"
+		}
+		return "return\n"
+	case *ast.IfStatement:
+		return pg.GeneratePythonIfStatement(s)
+	case *ast.VariableDeclaration:
+		return pg.GenerateVariableDeclaration(s)
+	}
+	return ""
+}
+
+func (pg *PythonGenerator) GeneratePythonIfStatement(is *ast.IfStatement) string {
+	var sb strings.Builder
+	sb.WriteString("if ")
+	sb.WriteString(pg.GeneratePythonExpression(is.Condition))
+	sb.WriteString(":\n")
+	
+	if blockStmt, ok := is.ThenBranch.(*ast.BlockStatement); ok {
+		for _, stmt := range blockStmt.Statements {
+			sb.WriteString("        ")
+			sb.WriteString(pg.GeneratePythonStatement(stmt))
+		}
+	}
+	
+	if is.ElseBranch != nil {
+		sb.WriteString("    else:\n")
+		if blockStmt, ok := is.ElseBranch.(*ast.BlockStatement); ok {
+			for _, stmt := range blockStmt.Statements {
+				sb.WriteString("        ")
+				sb.WriteString(pg.GeneratePythonStatement(stmt))
+			}
+		}
+	}
+	
+	return sb.String()
+}
+
+func (pg *PythonGenerator) GeneratePythonExpression(expr ast.Expression) string {
+	switch e := expr.(type) {
+	case *ast.StringLiteral:
+		return pg.GenerateStringLiteral(e)
+	case *ast.NumberLiteral:
+		return pg.GenerateNumberLiteral(e)
+	case *ast.BooleanLiteral:
+		if e.Value {
+			return "True"
+		}
+		return "False"
+	case *ast.TemplateLiteral:
+		return pg.GenerateTemplateLiteral(e)
+	case *ast.ArrayLiteral:
+		return pg.GenerateArrayLiteral(e)
+	case *ast.ObjectLiteral:
+		return pg.GenerateObjectLiteral(e)
+	case *ast.CallExpression:
+		return pg.GenerateCallExpression(e)
+	case *ast.IndexExpression:
+		return pg.GenerateIndexExpression(e)
+	case *ast.Identifier:
+		return e.Value
+	case *ast.InfixExpression:
+		return pg.GeneratePythonExpression(e.Left) + " " + e.Operator + " " + pg.GeneratePythonExpression(e.Right)
+	}
+	return ""
+}
+
+func (pg *PythonGenerator) GeneratePythonExpressionStatement(es *ast.ExpressionStatement) string {
+	// Convertir console.log en print
+	if callExpr, ok := es.Expression.(*ast.CallExpression); ok {
+		if dotExpr, ok := callExpr.Function.(*ast.DotExpression); ok {
+			if ident, ok := dotExpr.Object.(*ast.Identifier); ok {
+				if ident.Value == "console" && dotExpr.Property == "log" {
+					var sb strings.Builder
+					sb.WriteString("print(")
+					for i, arg := range callExpr.Arguments {
+						if i > 0 {
+							sb.WriteString(", ")
+						}
+						sb.WriteString(pg.GeneratePythonExpression(arg))
+					}
+					sb.WriteString(")\n")
+					return sb.String()
+				}
+			}
+		}
+	}
+	
+	return pg.GeneratePythonExpression(es.Expression) + "\n"
+}
+
+func (pg *PythonGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
+	var sb strings.Builder
+	
+	// Python n'a pas de const, on peut utiliser un commentaire ou une convention
+	if vd.IsConst {
+		sb.WriteString("# Constant\n")
+	}
+	
+	sb.WriteString(vd.Name)
+	sb.WriteString(" = ")
+	
+	switch val := vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString(pg.GenerateStringLiteral(val))
+	case *ast.NumberLiteral:
+		sb.WriteString(pg.GenerateNumberLiteral(val))
+	case *ast.BooleanLiteral:
+		sb.WriteString(pg.GenerateBooleanLiteral(val))
+	case *ast.ArrayLiteral:
+		sb.WriteString(pg.GenerateArrayLiteral(val))
+	case *ast.ObjectLiteral:
+		sb.WriteString(pg.GenerateObjectLiteral(val))
+	case *ast.TemplateLiteral:
+		sb.WriteString(pg.GenerateTemplateLiteral(val))
+	default:
+		sb.WriteString(pg.GeneratePythonExpression(val))
+	}
+	
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func (pg *PythonGenerator) GenerateCallExpression(ce *ast.CallExpression) string {
+	var sb strings.Builder
+	sb.WriteString(pg.GeneratePythonExpression(ce.Function))
+	sb.WriteString("(")
+	for i, arg := range ce.Arguments {
+		if i > 0 {
+			sb.WriteString(", ")
 		}
 	}
 
@@ -387,82 +816,209 @@ func (t *TypeScriptToJavaScriptTranspiler) generateTemplateLiteral(node *ast.Tem
 	return result.String()
 }
 
-// ============================================================================
-// FONCTIONS UTILITAIRES
-// ============================================================================
-
-// needsQuotes détermine si une clé d'objet a besoin de guillemets
-func (t *TypeScriptToJavaScriptTranspiler) needsQuotes(key string) bool {
-	if key == "" {
-		return true
-	}
-
-	// Vérifier si c'est un identifiant valide
-	if !isValidIdentifier(key) {
-		return true
-	}
-
-	// Vérifier si c'est un mot-clé réservé
-	reservedWords := map[string]bool{
-		"break": true, "case": true, "catch": true, "class": true, "const": true,
-		"continue": true, "debugger": true, "default": true, "delete": true,
-		"do": true, "else": true, "export": true, "extends": true, "finally": true,
-		"for": true, "function": true, "if": true, "import": true, "in": true,
-		"instanceof": true, "new": true, "return": true, "super": true, "switch": true,
-		"this": true, "throw": true, "try": true, "typeof": true, "var": true,
-		"void": true, "while": true, "with": true, "yield": true,
-	}
-
-	return reservedWords[key]
+func (pg *PythonGenerator) GenerateIndexExpression(ie *ast.IndexExpression) string {
+	return pg.GeneratePythonExpression(ie.Left) + "[" + pg.GeneratePythonExpression(ie.Index) + "]"
 }
 
-// isValidIdentifier vérifie si une chaîne est un identifiant valide
-func isValidIdentifier(str string) bool {
-	if str == "" {
-		return false
+func (pg *PythonGenerator) GenerateArrayLiteral(al *ast.ArrayLiteral) string {
+	var sb strings.Builder
+	sb.WriteString("[")
+	for i, element := range al.Elements {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(pg.GeneratePythonExpression(element))
 	}
+	sb.WriteString("]")
+	return sb.String()
+}
 
-	// Premier caractère doit être une lettre, _, ou $
-	first := str[0]
-	if !(first >= 'a' && first <= 'z') && !(first >= 'A' && first <= 'Z') && first != '_' && first != '$' {
-		return false
+func (pg *PythonGenerator) GenerateObjectLiteral(ol *ast.ObjectLiteral) string {
+	var sb strings.Builder
+	sb.WriteString("{")
+	for i, prop := range ol.Properties {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString("\"")
+		sb.WriteString(prop.Key)
+		sb.WriteString("\": ")
+		sb.WriteString(pg.GeneratePythonExpression(prop.Value))
 	}
+	sb.WriteString("}")
+	return sb.String()
+}
 
-	// Autres caractères peuvent être des lettres, chiffres, _ ou $
-	for i := 1; i < len(str); i++ {
-		ch := str[i]
-		if !(ch >= 'a' && ch <= 'z') && !(ch >= 'A' && ch <= 'Z') && 
-		   !(ch >= '0' && ch <= '9') && ch != '_' && ch != '$' {
-			return false
+func (pg *PythonGenerator) GenerateStringLiteral(sl *ast.StringLiteral) string {
+	return "\"" + sl.Value + "\""
+}
+
+func (pg *PythonGenerator) GenerateNumberLiteral(nl *ast.NumberLiteral) string {
+	return nl.Value
+}
+
+func (pg *PythonGenerator) GenerateBooleanLiteral(bl *ast.BooleanLiteral) string {
+	if bl.Value {
+		return "True"
+	}
+	return "False"
+}
+
+func (pg *PythonGenerator) GenerateTemplateLiteral(tl *ast.TemplateLiteral) string {
+	// En Python, convertir les template literals en f-strings
+	if len(tl.Parts) > 0 {
+		content := tl.Parts[0].TokenLiteral()
+		// Pour l'instant, retourner comme string simple (plus tard on peut parser ${} pour interpolation)
+		return "\"" + content + "\""
+	}
+	return "\"\""
+}
+
+// CSharpGenerator génère du code C#
+type CSharpGenerator struct{}
+
+func (csg *CSharpGenerator) Generate(statements []ast.Statement) string {
+	var sb strings.Builder
+	
+	sb.WriteString("using System;\n\n")
+	sb.WriteString("namespace GeneratedCode\n{\n")
+	sb.WriteString("    class Program\n    {\n")
+	sb.WriteString("        static void Main(string[] args)\n        {\n")
+	
+	for _, stmt := range statements {
+		switch s := stmt.(type) {
+		case *ast.VariableDeclaration:
+			sb.WriteString("            ")
+			sb.WriteString(csg.GenerateVariableDeclaration(s))
 		}
 	}
-
-	return true
+	
+	sb.WriteString("        }\n    }\n}\n")
+	return sb.String()
 }
 
-// ============================================================================
-// FONCTION PRINCIPALE DE TRANSPILATION
-// ============================================================================
-
-// TranspileTypeScriptToJavaScript transpile du code TypeScript vers JavaScript
-func TranspileTypeScriptToJavaScript(typescriptCode string) (string, error) {
-	// Créer le lexer
-	l := lexer.New(typescriptCode)
+func (csg *CSharpGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
+	var sb strings.Builder
 	
-	// Créer le parser
-	p := parser.New(l)
-	
-	// Parser le programme
-	program := p.ParseProgram()
-	
-	// Vérifier les erreurs de parsing
-	if len(p.Errors()) > 0 {
-		return "", fmt.Errorf("erreurs de parsing: %v", p.Errors())
+	// Déterminer le type C#
+	switch vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString("string ")
+	case *ast.NumberLiteral:
+		sb.WriteString("int ") // Simplifié
+	case *ast.BooleanLiteral:
+		sb.WriteString("bool ")
+	default:
+		sb.WriteString("var ")
 	}
 	
-	// Générer le JavaScript
-	transpiler := &TypeScriptToJavaScriptTranspiler{}
-	javascriptCode := transpiler.Generate(program)
+	sb.WriteString(vd.Name)
+	sb.WriteString(" = ")
 	
-	return javascriptCode, nil
+	switch val := vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString(csg.GenerateStringLiteral(val))
+	case *ast.NumberLiteral:
+		sb.WriteString(csg.GenerateNumberLiteral(val))
+	case *ast.BooleanLiteral:
+		sb.WriteString(csg.GenerateBooleanLiteral(val))
+	}
+	
+	sb.WriteString(";\n")
+	return sb.String()
+}
+
+func (csg *CSharpGenerator) GenerateStringLiteral(sl *ast.StringLiteral) string {
+	return "\"" + sl.Value + "\""
+}
+
+func (csg *CSharpGenerator) GenerateNumberLiteral(nl *ast.NumberLiteral) string {
+	return nl.Value
+}
+
+func (csg *CSharpGenerator) GenerateBooleanLiteral(bl *ast.BooleanLiteral) string {
+	if bl.Value {
+		return "true"
+	}
+	return "false"
+}
+
+// GoGenerator génère du code Go
+type GoGenerator struct{}
+
+func (gg *GoGenerator) Generate(statements []ast.Statement) string {
+	var sb strings.Builder
+	
+	sb.WriteString("package main\n\n")
+	sb.WriteString("func main() {\n")
+	
+	for _, stmt := range statements {
+		switch s := stmt.(type) {
+		case *ast.VariableDeclaration:
+			sb.WriteString("    ")
+			sb.WriteString(gg.GenerateVariableDeclaration(s))
+		}
+	}
+	
+	sb.WriteString("}\n")
+	return sb.String()
+}
+
+func (gg *GoGenerator) GenerateVariableDeclaration(vd *ast.VariableDeclaration) string {
+	var sb strings.Builder
+	
+	if vd.IsConst {
+		sb.WriteString("const ")
+	} else {
+		sb.WriteString("var ")
+	}
+	
+	sb.WriteString(vd.Name)
+	sb.WriteString(" ")
+	
+	// Déterminer le type Go
+	switch vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString("string")
+	case *ast.NumberLiteral:
+		sb.WriteString("int")
+	case *ast.BooleanLiteral:
+		sb.WriteString("bool")
+	default:
+		sb.WriteString("interface{}")
+	}
+	
+	sb.WriteString(" = ")
+	
+	switch val := vd.Value.(type) {
+	case *ast.StringLiteral:
+		sb.WriteString(gg.GenerateStringLiteral(val))
+	case *ast.NumberLiteral:
+		sb.WriteString(gg.GenerateNumberLiteral(val))
+	case *ast.BooleanLiteral:
+		sb.WriteString(gg.GenerateBooleanLiteral(val))
+	}
+	
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+func (gg *GoGenerator) GenerateStringLiteral(sl *ast.StringLiteral) string {
+	return "\"" + sl.Value + "\""
+}
+
+func (gg *GoGenerator) GenerateNumberLiteral(nl *ast.NumberLiteral) string {
+	return nl.Value
+}
+
+func (gg *GoGenerator) GenerateBooleanLiteral(bl *ast.BooleanLiteral) string {
+	if bl.Value {
+		return "true"
+	}
+	return "false"
+}
+
+// Fonction de compatibilité pour l'ancien code
+func GenerateJS(statements []ast.Statement) string {
+	return Generate(statements, JavaScript)
 }
